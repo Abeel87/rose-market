@@ -4,6 +4,7 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const number = value => new Intl.NumberFormat('pl-PL').format(value);
+const plural = (value, one, few, many) => value === 1 ? one : value % 10 >= 2 && value % 10 <= 4 && (value % 100 < 12 || value % 100 > 14) ? few : many;
 const coord = value => new Intl.NumberFormat('pl-PL', { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 const fullDate = value => value ? new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Warsaw' }).format(new Date(value)) + ' (PL)' : 'Brak informacji';
 const shortDate = value => value ? new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }).format(new Date(value)) : 'Brak odczytu';
@@ -113,7 +114,7 @@ function renderResults() {
   const page = filtered.slice(start, start + PAGE_SIZE);
   $('#results-title').textContent = state.view === 'favorites' ? 'Obserwowane przedmioty' : state.type === 'sell' ? 'Oferty sprzedaży' : state.type === 'buy' ? 'Oferty kupna' : 'Wszystkie oferty';
   const shops = new Set(filtered.map(o => o.stallId)).size;
-  $('#results-count').textContent = `${number(filtered.length)} ofert · ${number(shops)} sklepów${state.query ? ` · „${state.query}”` : ''}`;
+  $('#results-count').textContent = `${number(filtered.length)} ${plural(filtered.length, 'oferta', 'oferty', 'ofert')} · ${number(shops)} ${plural(shops, 'sklep', 'sklepy', 'sklepów')}${state.query ? ` · „${state.query}”` : ''}`;
   $('#offer-rows').innerHTML = page.map(offer => {
     const selected = offer.id === state.offer || offer.stallId === state.stall;
     const favorite = favorites.has(offer.itemId);
@@ -133,7 +134,7 @@ function renderResults() {
     $('#empty-title').textContent = 'Nie ma takiej oferty w tym odczycie';
     $('#empty-message').textContent = 'Spróbuj skrócić nazwę albo zmienić rodzaj ofert. Brak wyniku nie oznacza, że nikt nie sprzedaje tego przedmiotu w grze.';
   }
-  $('#page-info').textContent = filtered.length ? `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} z ${number(filtered.length)} ofert · strona ${state.page}/${pages}` : '0 ofert';
+  $('#page-info').textContent = filtered.length ? `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} z ${number(filtered.length)} ${filtered.length === 1 ? 'oferty' : 'ofert'} · strona ${state.page}/${pages}` : '0 ofert';
   $('#prev-page').disabled = state.page <= 1;
   $('#next-page').disabled = state.page >= pages;
   renderMap();
@@ -158,7 +159,7 @@ function renderMap() {
   // A selected location remains visible while a search changes; it is labeled
   // in the details panel even if it no longer matches the table filters.
   if (selected && !matchedIds.has(selected.id)) stalls.push(selected);
-  $('#map-count').textContent = `${number(matchedIds.size)} sklepów`;
+  $('#map-count').textContent = `${number(matchedIds.size)} ${plural(matchedIds.size, 'sklep', 'sklepy', 'sklepów')}`;
   const ordered = [...stalls].sort((a, b) => Number(a.id === state.stall) - Number(b.id === state.stall));
   $('#map-markers').innerHTML = ordered.map(stall => {
     const p = point(stall);
@@ -287,6 +288,7 @@ document.addEventListener('click', event => {
     return;
   }
   if (target.dataset.searchItem) {
+    if (state.view === 'favorites') state.view = 'offers';
     state.query = target.dataset.searchItem;
     state.type = target.dataset.itemType;
     state.page = 1;
