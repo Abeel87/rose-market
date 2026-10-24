@@ -1,0 +1,86 @@
+name: Publish ROSE Market
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/**'
+      - 'scripts/sync-market.mjs'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '37 8,20 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Read project source
+        uses: actions/checkout@v7
+
+      - name: Refresh the market snapshot
+        id: sync
+        continue-on-error: true
+        run: node scripts/sync-market.mjs
+
+      - name: Report refresh status
+        env:
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const status = JSON.parse(readFileSync('dist/data/sync-status.json', 'utf8'));
+          if (typeof status.success !== 'boolean' || !status.attemptedAt) {
+            throw new Error('Missing or invalid refresh status.');
+          }
+          if (process.env.SYNC_OUTCOME === 'failure' && status.success) {
+            throw new Error('The refresh failed without an honest failure status.');
+          }
+          const note = status.success
+            ? 'Pobrano poprawny plik źródłowy. Daty obserwacji sklepów pozostały bez zmian.'
+            : 'Odświeżenie nie powiodło się. Publikowana jest zapasowa kopia z repozytorium, z widocznym statusem błędu.';
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `## Odświeżenie rynku\n\n${note}\n\nPróba: ${status.attemptedAt}\n\nData kopii dostawcy: ${status.snapshotFetchedAt ?? 'nieznana'}\n`);
+          if (!status.success) console.log('::warning::Market refresh failed; publishing the validated fallback snapshot with failure status.');
+          NODE
+
+      - name: Verify source and the snapshot being published
+        run: |
+          node --check dist/app.js
+          node --check dist/market.js
+          node --check scripts/sync-market.mjs
+          npm test
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { normalizeSnapshot } from './dist/market.js';
+          const data = normalizeSnapshot(JSON.parse(readFileSync('dist/data/market-stalls.json', 'utf8')));
+          if (!data.stats.items || !data.stats.stalls || !data.stats.offers) throw new Error('No usable fallback snapshot.');
+          console.log(`Validated ${data.stats.stalls} shop records and ${data.stats.offers} offers.`);
+          NODE
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
