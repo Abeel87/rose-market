@@ -12,8 +12,9 @@ Polska przeglądarka publicznych danych o sklepach graczy **ROSE Online Global**
 - Datę ostatniej obserwacji sklepu i datę kopii danych dostawcy.
 - Wyszukiwanie i filtrowanie ofert oraz ulubione zapisywane w tej przeglądarce.
 - Status ostatniej próby pobrania danych, również gdy odświeżenie się nie powiodło.
+- Historię minimalnych i maksymalnych cen sprzedaży oraz skupu, rozdzieloną według dni UTC.
 
-To zapis obserwacji. **Pozycja na mapie nie potwierdza, że sklep nadal działa w tym miejscu ani że przedmiot jest jeszcze dostępny.** Dane nie obejmują innych map. Aplikacja nie łączy się z kontem w grze i nie prowadzi transakcji.
+To zapis obserwacji. **Pozycja na mapie nie potwierdza, że sklep nadal działa w tym miejscu ani że przedmiot jest jeszcze dostępny.** Mapa sklepów obejmuje tylko Junon Polis. Historia cen jest odrębnym zbiorem notowań dla serwera ROSE Online; jej rekordy nie potwierdzają miejsca oferty. Aplikacja nie łączy się z kontem w grze i nie prowadzi transakcji.
 
 ### Znaczenie ceny
 
@@ -39,6 +40,22 @@ Przy publikacji skrypt `scripts/sync-market.mjs` wykonuje jedno pobranie HTTPS z
 
 Jeśli pobranie lub walidacja się nie powiedzie, skrypt zachowuje dostępną kopię i zapisuje status błędu. Workflow może wtedy opublikować zweryfikowaną **kopię zapasową z repozytorium** wraz z tym statusem. Nowe dane trafiają do publikowanej strony; automatyczne uruchomienia nie dopisują commitów do repozytorium. Częstsze uruchomienie workflow nie przyspiesza aktualizacji danych u dostawcy.
 
+## Historia cen
+
+Historię w `dist/data/price-history.json` tworzy skrypt `scripts/sync-history.mjs` z publicznego [API cen ROSE Online Toolbox](https://api.roseonlinetoolbox.com/api/v1/prices). Pobiera wyłącznie serwer `rose-online`, z zapytaniem o ostatnie 90 dni. Dopasowanie przedmiotów wymaga tej samej nazwy po normalizacji Unicode NFC, usunięciu skrajnych spacji i zamianie liter na małe; warianty przedmiotu nie są łączone przez częściowe podobieństwo nazw.
+
+Pierwszy pełny import wykonany **24 października 2026 r. o 09:58 UTC** obejmował 4728 rekordów cen na 48 stronach API i 1449 przedmiotów. Dostawca zwrócił wtedy obserwacje z **20 i 24 października 2026 r.** Zapytanie o 90 dni nie oznacza, że źródło ma notowania z każdego z tych dni.
+
+Każdy punkt oznacza **dzień obserwacji w UTC**, wyznaczony z `submitted_at`. Dla tego dnia osobno obliczamy minimum i maksimum rekordów sprzedaży (`sellMin`, `sellMax`) oraz skupu (`buyMin`, `buyMax`). Brak strony rynku daje wartości `null`; brak notowań w danym dniu nie oznacza ceny zero. Nie korzystamy z API dziennych średnich, które łączy oferty kupna i sprzedaży.
+
+Są to **notowania ofert, a nie potwierdzone transakcje**. Pola `sellCount` i `buyCount` liczą rekordy cen dostawcy; nie oznaczają liczby sprzedawców, transakcji ani wolumenu. Pole ilości z API nie jest używane do obliczania wolumenu ani ceny jednostkowej, ponieważ nie potwierdza porównywalnej jednostki ceny i może występować w powtórzonych raportach granicznych cen.
+
+Pobranie obejmuje wszystkie strony odpowiedzi: po 100 rekordów, maksymalnie 100 stron i 10 000 rekordów. Działają najwyżej dwa równoległe zapytania. Skrypt sprawdza spójność paginacji, unikalność identyfikatorów rekordów, serwer, typ oferty, nazwę i identyfikator przedmiotu, całkowitą nieujemną cenę oraz datę obserwacji. Każde zapytanie ma limit 25 sekund, całość pięć minut. Przy HTTP 429 respektuje krótki `Retry-After`, z ograniczoną liczbą ponowień; dłuższe ograniczenie kończy próbę i zachowuje poprzednią kopię.
+
+Nowa kompletna odpowiedź zastępuje nakładające się koszyki dnia i typu oferty, aby ponowne pobranie nie podwajało liczników. Starsze punkty dostępne w zapisanej kopii są zachowywane, jeżeli API już ich nie zwraca; pozostaje najwyżej 90 dni. Kopia początkowa i przyszłe aktualizacje zawierają tylko rzeczywiście dostarczone notowania — aplikacja nie dopisuje sztucznych dni ani nie prowadzi niezależnego zapisu wszystkich codziennych sklepów. GitHub Actions aktualizuje publikowaną stronę bez automatycznych commitów; trwałość dalszej historii zależy od zakresu API oraz kopii obecnej w repozytorium.
+
+Status pobrania historii jest oddzielony od statusu mapy sklepów i zapisany w `dist/data/history-status.json`. Błąd sieci, niepełna odpowiedź lub zmiana schematu nie nadpisują dobrej historii i nie oznaczają jej jako odświeżonej.
+
 ## Uruchomienie lokalnie
 
 Aplikacja jest statyczna i nie wymaga instalowania pakietów ani budowania. Z katalogu projektu uruchom serwer HTTP, na przykład:
@@ -60,6 +77,12 @@ Ręczne pobranie danych:
 
 ```sh
 npm run sync
+```
+
+Ręczne pobranie historii cen:
+
+```sh
+node scripts/sync-history.mjs
 ```
 
 Przy błędzie pobrania lub walidacji polecenie kończy się kodem różnym od zera; poprawna istniejąca kopia pozostaje na miejscu, a status opisuje nieudaną próbę.

@@ -1,4 +1,5 @@
 import { normalizeSnapshot, filterOffers, worldToMap } from './market.js';
+import { createItemDetail } from './item-detail.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -26,7 +27,28 @@ try {
   if (Array.isArray(stored.favorites)) favorites = new Set(stored.favorites.filter(v => typeof v === 'string' && v.length < 160).slice(0, 5000));
 } catch { /* A private browser may not have local storage. */ }
 
-const state = { query: '', type: 'sell', sort: 'price-asc', view: 'offers', page: 1, stall: null, offer: null };
+const state = { query: '', type: 'sell', sort: 'price-asc', view: 'offers', page: 1, stall: null, offer: null, item: null };
+const itemDetail = createItemDetail({
+  onClose: () => { state.item = null; writeHash(); },
+  onSelectOffer: id => {
+    const offer = dataset?.offers.find(o => o.id === id);
+    if (offer) selectShop(offer.stallId, offer.id, true);
+  },
+  onSearchItem: name => {
+    state.query = name;
+    state.type = 'all';
+    state.view = 'offers';
+    state.page = 1;
+    render();
+  },
+});
+function openItem(itemId, offerId = null) {
+  const item = dataset?.items.find(i => i.id === itemId);
+  if (!item) { state.item = null; itemDetail.close(); writeHash(); return; }
+  state.item = item.id;
+  writeHash();
+  itemDetail.open(item, dataset.offers, dataset.offers.find(o => o.id === offerId));
+}
 function readHash() {
   const params = new URLSearchParams(location.hash.slice(1));
   state.query = (params.get('q') || '').slice(0, 500);
@@ -34,6 +56,7 @@ function readHash() {
   state.view = ['offers', 'map', 'favorites', 'about'].includes(params.get('view')) ? params.get('view') : 'offers';
   state.sort = ['price-asc', 'price-desc', 'name', 'recent'].includes(params.get('sort')) ? params.get('sort') : 'price-asc';
   state.stall = params.get('shop') || null;
+  state.item = params.get('item') || null;
   state.offer = null;
   state.page = 1;
 }
@@ -44,6 +67,7 @@ function writeHash() {
   if (state.view !== 'offers') params.set('view', state.view);
   if (state.sort !== 'price-asc') params.set('sort', state.sort);
   if (state.stall) params.set('shop', state.stall);
+  if (state.item) params.set('item', state.item);
   const hash = params.toString();
   history.replaceState(null, '', `${location.pathname}${location.search}${hash ? '#' + hash : ''}`);
 }
@@ -119,7 +143,7 @@ function renderResults() {
     const selected = offer.id === state.offer || offer.stallId === state.stall;
     const favorite = favorites.has(offer.itemId);
     return `<tr class="${selected ? 'selected' : ''}" data-offer-row="${esc(offer.id)}">
-      <td><div class="item-cell"><img class="item-icon" src="${esc(offer.icon || FALLBACK_ICON)}" alt="" loading="lazy" referrerpolicy="no-referrer"><div><span class="item-name">${esc(offer.itemName)}</span><span class="item-sub ${offer.type}">${offer.type === 'sell' ? 'Sprzedaż' : 'Kupno'} · Junon</span></div></div></td>
+      <td><button class="item-cell item-open" data-item="${esc(offer.itemId)}" data-item-offer="${esc(offer.id)}" aria-label="Pokaż wykres cen: ${esc(offer.itemName)}" title="Kliknij, aby zobaczyć ceny i opłacalność"><img class="item-icon" src="${esc(offer.icon || FALLBACK_ICON)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span><span class="item-name">${esc(offer.itemName)}<span class="chart-link-icon" aria-hidden="true">↗</span></span><span class="item-sub ${offer.type}">${offer.type === 'sell' ? 'Sprzedaż' : 'Kupno'} · Junon</span></span></button></td>
       <td><span class="price">${number(offer.price)}<span class="price-mini" title="${esc(fullDate(offer.seenAt))}">${esc(shortDate(offer.seenAt))}</span></span></td>
       <td><button class="vendor-button" data-shop="${esc(offer.stallId)}" title="Pokaż sklep ${esc(offer.player)} na mapie">${esc(offer.player)}</button><span class="coords-mini">${coord(offer.x)} · ${coord(offer.y)}</span></td>
       <td><div class="row-actions"><button class="map-button" data-offer="${esc(offer.id)}" aria-label="Pokaż ${esc(offer.itemName)} u ${esc(offer.player)} na mapie">Mapa</button><button class="favorite-button ${favorite ? 'on' : ''}" data-favorite="${esc(offer.itemId)}" aria-label="${favorite ? 'Usuń z obserwowanych' : 'Obserwuj'}: ${esc(offer.itemName)}" aria-pressed="${favorite}">${favorite ? '★' : '☆'}</button></div></td>
@@ -181,7 +205,7 @@ function renderShop(stall) {
     <div class="shop-coords"><span class="coordinate-box"><span>X</span> ${coord(stall.x)}</span><span class="coordinate-box"><span>Y</span> ${coord(stall.y)}</span><button class="copy-button" id="copy-position">Kopiuj miejsce</button></div>
     <p class="shop-seen">◷ Ostatnio widziany: ${esc(fullDate(stall.seenAt))}<br>${esc(ageLabel(stall.seenAt))}${inFilter ? '' : ' · Sklep poza aktualnym filtrem'}</p>
     <p class="shop-list-title">Oferty tego sklepu w odczycie · ${number(offers.length)}</p>
-    <ul class="shop-list">${offers.map(o => `<li><button data-search-item="${esc(o.itemName)}" data-item-type="${o.type}"><span>${esc(o.itemName)}<small>${o.type === 'sell' ? 'Gracz sprzedaje' : 'Gracz kupuje'}</small></span><strong>${number(o.price)} Z</strong></button></li>`).join('')}</ul>`;
+    <ul class="shop-list">${offers.map(o => `<li><button data-item="${esc(o.itemId)}" data-item-offer="${esc(o.id)}" title="Wykres cen i opłacalność"><span>${esc(o.itemName)}<small>${o.type === 'sell' ? 'Gracz sprzedaje' : 'Gracz kupuje'} · wykres ↗</small></span><strong>${number(o.price)} Z</strong></button></li>`).join('')}</ul>`;
 }
 function render() {
   renderNavigation();
@@ -220,6 +244,7 @@ async function copyText(value, success) {
 }
 async function loadData() {
   if (busy) return;
+  itemDetail.resetHistory();
   busy = true;
   $('#refresh').disabled = true;
   try {
@@ -242,6 +267,7 @@ async function loadData() {
     renderMetadata();
     render();
     if (state.stall) focusStall(dataset.stalls.find(s => s.id === state.stall));
+    if (state.item) openItem(state.item);
   } catch {
     $('#load-error').hidden = false;
     $('#load-error').textContent = dataset
@@ -263,6 +289,7 @@ async function loadData() {
 document.addEventListener('click', event => {
   const target = event.target.closest('button, [data-shop]');
   if (!target) return;
+  if (target.dataset.item) { openItem(target.dataset.item, target.dataset.itemOffer); return; }
   if (target.dataset.view) { changeView(target.dataset.view); return; }
   if (target.dataset.type) {
     state.type = target.dataset.type;
@@ -321,6 +348,7 @@ document.addEventListener('error', event => {
   }
 }, true);
 document.addEventListener('keydown', event => {
+  if (itemDetail.isOpen()) return;
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
     event.preventDefault();
     if (state.view === 'about') changeView('offers');
@@ -373,6 +401,8 @@ map.addEventListener('pointerleave', event => { if (dragging && !dragging.moved)
 window.addEventListener('hashchange', () => {
   readHash(); render();
   if (dataset && state.stall) focusStall(dataset.stalls.find(s => s.id === state.stall));
+  if (dataset && state.item) openItem(state.item);
+  else itemDetail.close();
 });
 readHash();
 renderNavigation();

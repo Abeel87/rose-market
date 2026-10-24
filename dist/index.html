@@ -8,6 +8,7 @@
   <title>ROSE Market — sklepy i ceny w Junon</title>
   <link rel="icon" href="./assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./detail.css?v=1">
 </head>
 <body>
   <a class="skip-link" href="#market-content">Przejdź do ofert</a>
@@ -65,8 +66,37 @@
     </section>
     <footer class="page-footer"><span>ROSE Market <span class="footer-divider">/</span> dla społeczności ROSE Online</span><span>Dane: <a href="https://roseonlinetoolbox.com/market?tab=map" target="_blank" rel="noopener">Toolbox</a> · <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a></span></footer>
   </main>
+  <dialog id="item-dialog" class="item-dialog" aria-labelledby="detail-name">
+    <header class="detail-header"><img id="detail-icon" src="./assets/item.svg" alt=""><div class="detail-heading"><p class="eyebrow">CENY I OPŁACALNOŚĆ</p><h2 id="detail-name">Przedmiot</h2><p id="detail-observed" class="detail-observed"></p></div><button id="detail-close" class="detail-close" aria-label="Zamknij szczegóły przedmiotu" autofocus>×</button></header>
+    <div class="detail-body">
+      <div class="detail-price-summary"><div class="detail-price-card sell"><span>Najniższa sprzedaż · odczyt sklepów</span><strong id="detail-ask">—</strong></div><div class="detail-price-card buy"><span>Najwyższe kupno · odczyt sklepów</span><strong id="detail-bid">—</strong></div><div class="detail-price-card cost"><span>Twój próg zwrotu kosztów</span><strong id="detail-break-even">Podaj koszt</strong></div></div>
+      <div class="detail-columns">
+        <section class="detail-chart-column" aria-labelledby="detail-chart-heading">
+          <div class="chart-toolbar"><h3 id="detail-chart-heading">Historia cen</h3><div class="chart-periods" aria-label="Zakres historii cen"><button data-days="7" aria-pressed="false">7 dni</button><button data-days="30" aria-pressed="true">30 dni</button><button data-days="90" aria-pressed="false">90 dni</button></div></div>
+          <p id="detail-history-status" class="detail-history-status" role="status">Wczytywanie historii…</p>
+          <div id="detail-chart" class="price-chart"></div>
+          <div class="chart-legend"><label><input id="show-sell" type="checkbox" checked><i></i> Najniższa sprzedaż</label><label><input id="show-buy" type="checkbox" checked><i class="buy-key"></i> Najwyższe kupno</label><span><i class="cost-key"></i> Zwrot kosztów</span><span><i class="target-key"></i> Cel zysku</span></div>
+          <p class="chart-footnote">Zacieniony obszar pokazuje zakres odczytanych cen sprzedaży. Linie łączą dostępne punkty. Są to ceny ofert, a nie ceny zawartych transakcji.</p>
+          <div id="detail-threshold-hint" class="chart-threshold-hint">Wpisz swój koszt zakupu lub craftingu. Na wykresie pojawi się linia opłacalności, a po ustawieniu zysku — linia celu.</div>
+          <details id="detail-history-table" class="history-table-details"><summary>Pokaż odczyty w tabeli</summary><div class="history-table-scroll"><table class="history-table"><thead><tr><th scope="col">Dzień UTC</th><th scope="col">Min. sprzedaży · Z</th><th scope="col">Maks. sprzedaży · Z</th><th scope="col">Najwyższe kupno · Z</th></tr></thead><tbody id="detail-history-rows"></tbody></table></div></details>
+        </section>
+        <aside class="detail-calculator" aria-labelledby="detail-calc-heading">
+          <div class="detail-calc-heading"><h3 id="detail-calc-heading">Twoja opłacalność</h3><button id="detail-reset">Wyczyść koszty</button></div>
+          <label for="detail-cost">Koszt zakupu lub craftingu · Zulie</label><input id="detail-cost" type="text" inputmode="numeric" maxlength="100" placeholder="Wpisz swój koszt" autocomplete="off" aria-describedby="detail-cost-help detail-form-error"><p id="detail-cost-help" class="detail-input-hint">Podaj koszt dla tej samej jednostki, której dotyczy cena oferty.</p><button id="use-market-cost" class="detail-use-cost">Użyj najniższej ceny sprzedaży jako kosztu zakupu</button>
+          <div class="detail-input-grid"><div><label for="detail-extra">Dodatkowy koszt · Z</label><input id="detail-extra" type="text" inputmode="numeric" maxlength="100" value="0" aria-describedby="detail-form-error"></div><div><label for="detail-fee">Założona opłata · %</label><input id="detail-fee" type="text" inputmode="decimal" maxlength="100" value="0" aria-describedby="detail-fee-help detail-form-error"></div></div><p id="detail-fee-help" class="detail-input-hint">Opłata to Twój parametr kalkulacji. Domyślnie 0%.</p>
+          <label for="detail-target">Oczekiwany zysk · Zulie</label><input id="detail-target" type="text" inputmode="numeric" maxlength="100" value="0" aria-describedby="detail-form-error"><div class="detail-target-result"><span>Cena potrzebna do celu</span><strong id="detail-target-price">—</strong></div>
+          <div class="detail-rule"></div><label for="detail-sale">Porównywana cena sprzedaży · Zulie</label><input id="detail-sale" type="text" inputmode="numeric" maxlength="100" placeholder="Cena do porównania" aria-describedby="detail-reference detail-form-error"><p id="detail-reference" class="detail-input-hint"></p>
+          <p id="detail-form-error" class="detail-form-error" role="alert" hidden></p>
+          <div id="detail-outcome" class="detail-outcome" aria-live="polite"><span>WYNIK PRZY PORÓWNYWANEJ CENIE</span><strong id="detail-profit">—</strong><small id="detail-roi">ROI: —</small><p id="detail-outcome-note">Podaj koszt, aby obliczyć wynik.</p></div>
+          <p class="detail-model-note">Wynik = cena po założonej opłacie − wszystkie koszty. Pokrycie kosztów nie gwarantuje, że znajdziesz kupca. ROI to wynik podzielony przez koszt.</p><p id="detail-save-note" class="detail-save-note">Ustawienia zapisujemy dla tego przedmiotu na tym urządzeniu.</p>
+        </aside>
+        <section class="detail-offers-section" aria-label="Sklepy z tym przedmiotem"><div class="detail-offers-heading"><h3>Gdzie znaleźć ten przedmiot?</h3><span id="detail-offer-count">0</span></div><div id="detail-offers"></div><button id="detail-all-offers" class="detail-all-offers">Pokaż oferty w wyszukiwarce →</button></section>
+      </div>
+      <p class="detail-source-note">Historia: <a href="https://roseonlinetoolbox.com/market" target="_blank" rel="noopener">ROSE Online Toolbox</a>, źródło importowanych cen: <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a>. Kupno i sprzedaż liczymy oddzielnie z rzeczywistych odczytów. Zestawienie nie podaje ilości ani pewnej jednostki ceny. Parametry i dostępność przedmiotu sprawdź w sklepie w grze.</p>
+    </div>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <noscript><div class="noscript">Włącz JavaScript, aby przeglądać oferty i mapę sklepów.</div></noscript>
-  <script type="module" src="./app.js?v=52409f1"></script>
+  <script type="module" src="./app.js?v=charts-1"></script>
 </body>
 </html>
