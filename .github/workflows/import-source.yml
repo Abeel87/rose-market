@@ -1,0 +1,31 @@
+name: Import ROSE Market source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rose-market-source.tar.gz'
+      - '.github/workflows/import-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Import the prepared static application
+        run: |
+          test -f rose-market-source.tar.gz
+          tar -xzf rose-market-source.tar.gz
+          rm rose-market-source.tar.gz
+          node --check dist/app.js
+          npm test
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist scripts tests package.json README.md .gitignore rose-market-source.tar.gz
+          git commit -m "Add ROSE Market with observed vendor prices and Junon map"
+          git push origin HEAD:main
