@@ -3,7 +3,7 @@ import { buildItemHistory } from './chart-data.js?v=1';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = value => value === null || value === undefined ? '—' : new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 }).format(value);
-const compact = value => new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+const compact = value => new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 2 }).format(value);
 const day = value => new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`));
 const dated = value => new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Warsaw' }).format(new Date(value));
 const STORE = 'rose-market-profit-v1';
@@ -142,31 +142,51 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     else if (history?.status?.success === false) label.textContent = 'Ostatnie pobranie historii nie powiodło się. Pokazujemy zachowane dane i odczyt sklepów.';
     else if (currentSeries.points.length === 0) label.textContent = 'Brak odczytów w tym zakresie. Wybierz dłuższy okres.';
     else if (currentSeries.points.length === 1) label.textContent = 'Dostępny jest jeden dzień obserwacji. Nie dopisujemy wcześniejszych cen.';
-    else label.textContent = `${currentSeries.points.length} dni z odczytami · ${day(currentSeries.points[0].date)}–${day(currentSeries.points.at(-1).date)}. Brakujących dni nie uzupełniamy.`;
+    else label.textContent = `${currentSeries.points.length} dni z odczytami · ${day(currentSeries.points[0].date)}–${day(currentSeries.points.at(-1).date)} w wybranym zakresie ${period} dni. Pokazujemy tylko dni z otrzymanymi cenami.`;
+    const fetchedAt = history?.data?.fetchedAt;
+    const refreshTime = fetchedAt && Number.isFinite(Date.parse(fetchedAt)) ? `Historia pobrana: ${dated(fetchedAt)} (PL). ` : '';
+    $('#detail-history-refresh').textContent = `${refreshTime}Automatyczne pobieranie co 12 godz. Nowe odczyty cen zależą od źródła.`;
     $('#detail-threshold-hint').hidden = result.status !== 'needs-cost';
     renderChart(currentSeries.points, result);
     renderHistoryTable(currentSeries.points);
   }
   function renderChart(points, result) {
     const chart = $('#detail-chart');
+    const lastPoint = points.at(-1);
+    $('#detail-chart-reading').textContent = lastPoint
+      ? `Odczyt ${day(lastPoint.date)} · najniższa sprzedaż: ${lastPoint.sellMin === null ? 'brak odczytu' : `${fmt(lastPoint.sellMin)} Z`} · najwyższe kupno: ${lastPoint.buyMax === null ? 'brak odczytu' : `${fmt(lastPoint.buyMax)} Z`}`
+      : '';
+    $('#detail-chart-reading').hidden = !lastPoint;
+    const showSell = $('#show-sell').checked;
+    const showBuy = $('#show-buy').checked;
+    const showRange = showSell && $('#show-range').checked;
+    $('#detail-chart-note').textContent = showRange
+      ? 'Zacieniony obszar pokazuje pełny zakres odczytanych cen sprzedaży. Bardzo drogie oferty mogą spłaszczać pozostałe linie. Linie łączą dostępne punkty; pokazują oferty, nie zawarte transakcje.'
+      : 'Skala dopasowuje się do widocznych linii. Najdroższe oferty uwzględnisz przełącznikiem „Pełny zakres cen sprzedaży”; pozostają też w tabeli. Linie łączą dostępne punkty; pokazują oferty, nie zawarte transakcje.';
+    const sellPoints = points.filter(p => p.sellMin !== null);
+    const buyPoints = points.filter(p => p.buyMax !== null);
+    $('#show-sell').disabled = !sellPoints.length;
+    $('#show-buy').disabled = !buyPoints.length;
+    $('#show-range').disabled = !sellPoints.length || !showSell;
+    $('#sell-series-label').textContent = sellPoints.length ? 'Najniższa sprzedaż' : 'Sprzedaż — brak odczytów';
+    $('#buy-series-label').textContent = buyPoints.length ? 'Najwyższe kupno' : 'Kupno — brak odczytów';
     if (!points.length) {
       chart.innerHTML = '<div class="chart-empty"><span aria-hidden="true">∿</span><strong>Brak cen w wybranym okresie</strong><p>Zmień zakres. Twoje progi pozostają widoczne w kalkulatorze.</p></div>';
       return;
     }
-    const showSell = $('#show-sell').checked;
-    const showBuy = $('#show-buy').checked;
-    const sellPoints = points.filter(p => p.sellMin !== null);
-    const buyPoints = points.filter(p => p.buyMax !== null);
-    const values = points.flatMap(p => [showSell ? p.sellMin : null, showSell ? p.sellMax : null, showBuy ? p.buyMax : null]).filter(v => v !== null);
+    const values = points.flatMap(p => [showSell ? p.sellMin : null, showRange ? p.sellMax : null, showBuy ? p.buyMax : null]).filter(v => v !== null);
     if (result.valid) values.push(result.breakEvenPrice, result.targetPrice);
-    if (!values.length) values.push(0, 1);
+    if (!values.length) {
+      chart.innerHTML = '<div class="chart-empty"><span aria-hidden="true">∿</span><strong>Włącz serię cen</strong><p>Zaznacz sprzedaż lub kupno pod wykresem albo wpisz koszt w kalkulatorze.</p></div>';
+      return;
+    }
     const minimum = Math.min(...values);
     const maximum = Math.max(...values);
     const padding = Math.max((maximum - minimum) * .14, maximum * .06, 1);
     const low = Math.max(0, minimum - padding);
     const high = Math.max(low + 1, maximum + padding);
-    const W = 760, H = 310;
-    const box = { x: 78, y: 23, w: 590, h: 226 };
+    const W = Math.max(320, Math.min(760, Math.round(chart.clientWidth || 760))), H = 310;
+    const box = { x: W < 520 ? 72 : 78, y: 23, w: W - (W < 520 ? 134 : 170), h: 226 };
     const times = points.map(p => Date.parse(`${p.date}T00:00:00Z`));
     let start = Math.min(...times), end = Math.max(...times);
     if (start === end) { start -= 43200000; end += 43200000; }
@@ -177,16 +197,20 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     for (let i = 0; i <= 4; i++) {
       const val = low + (high - low) * i / 4;
       const y = sy(val);
-      svg += `<line class="chart-grid-line" x1="${box.x}" x2="${box.x + box.w}" y1="${y}" y2="${y}"/><text class="chart-axis-text" x="${box.x - 13}" y="${y + 4}" text-anchor="end">${esc(compact(Math.round(val)))}</text>`;
+      svg += `<line class="chart-grid-line" x1="${box.x}" x2="${box.x + box.w}" y1="${y}" y2="${y}"/><text class="chart-axis-text" x="${box.x - 13}" y="${y + 4}" text-anchor="end">${esc(compact(val))}</text>`;
     }
     svg += `<text class="chart-axis-title" x="${box.x}" y="11">CENA OFERTY · ZULIE</text>`;
-    const labelIndexes = new Set(points.length <= 5 ? points.map((_, i) => i) : [0, Math.round((points.length - 1) / 4), Math.round((points.length - 1) / 2), Math.round((points.length - 1) * 3 / 4), points.length - 1]);
+    const labelCount = W < 520 ? 3 : 5;
+    const labelIndexes = new Set(points.length <= labelCount ? points.map((_, i) => i) : Array.from({ length: labelCount }, (_, i) => Math.round((points.length - 1) * i / (labelCount - 1))));
     for (const i of labelIndexes) svg += `<text class="chart-axis-text" x="${sx(points[i].date)}" y="${box.y + box.h + 25}" text-anchor="middle">${day(points[i].date)}</text>`;
     svg += `<text class="chart-axis-title" x="${box.x + box.w}" y="${H - 8}" text-anchor="end">DNI ODCZYTÓW (UTC)</text>`;
-    if (showSell && sellPoints.length > 1) {
+    if (showRange && sellPoints.length > 1) {
       const upper = sellPoints.map(p => pt(p, 'sellMax')).join(' ');
       const lower = [...sellPoints].reverse().map(p => pt(p, 'sellMin')).join(' ');
       svg += `<polygon class="chart-sell-range" points="${upper} ${lower}"/>`;
+    } else if (showRange && sellPoints.length === 1) {
+      const p = sellPoints[0], x = sx(p.date), top = sy(p.sellMax), bottom = sy(p.sellMin);
+      svg += `<path class="chart-range-whisker" d="M ${x} ${top} V ${bottom} M ${x - 6} ${top} H ${x + 6} M ${x - 6} ${bottom} H ${x + 6}"/>`;
     }
     function series(data, key, cls, description) {
       if (!data.length) return '';
@@ -248,6 +272,8 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
   }
   $('#show-sell').addEventListener('change', update);
   $('#show-buy').addEventListener('change', update);
+  $('#show-range').addEventListener('change', update);
+  window.addEventListener('resize', () => { if (dialog.open) update(); });
   $('#use-market-cost').addEventListener('click', () => {
     const value = $('#use-market-cost').dataset.price;
     if (value === '') return;

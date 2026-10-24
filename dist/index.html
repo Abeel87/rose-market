@@ -8,7 +8,7 @@
   <title>ROSE Market — sklepy i ceny w Junon</title>
   <link rel="icon" href="./assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./detail.css?v=1">
+  <link rel="stylesheet" href="./detail.css?v=2">
 </head>
 <body>
   <a class="skip-link" href="#market-content">Przejdź do ofert</a>
@@ -74,9 +74,12 @@
         <section class="detail-chart-column" aria-labelledby="detail-chart-heading">
           <div class="chart-toolbar"><h3 id="detail-chart-heading">Historia cen</h3><div class="chart-periods" aria-label="Zakres historii cen"><button data-days="7" aria-pressed="false">7 dni</button><button data-days="30" aria-pressed="true">30 dni</button><button data-days="90" aria-pressed="false">90 dni</button></div></div>
           <p id="detail-history-status" class="detail-history-status" role="status">Wczytywanie historii…</p>
+          <div class="chart-display-options"><label><input id="show-range" type="checkbox"> Pełny zakres cen sprzedaży</label><span>Uwzględnia także najdroższe oferty</span></div>
           <div id="detail-chart" class="price-chart"></div>
-          <div class="chart-legend"><label><input id="show-sell" type="checkbox" checked><i></i> Najniższa sprzedaż</label><label><input id="show-buy" type="checkbox" checked><i class="buy-key"></i> Najwyższe kupno</label><span><i class="cost-key"></i> Zwrot kosztów</span><span><i class="target-key"></i> Cel zysku</span></div>
-          <p class="chart-footnote">Zacieniony obszar pokazuje zakres odczytanych cen sprzedaży. Linie łączą dostępne punkty. Są to ceny ofert, a nie ceny zawartych transakcji.</p>
+          <p id="detail-chart-reading" class="chart-reading" hidden></p>
+          <div class="chart-legend"><label><input id="show-sell" type="checkbox" checked><i></i> <span id="sell-series-label">Najniższa sprzedaż</span></label><label><input id="show-buy" type="checkbox" checked><i class="buy-key"></i> <span id="buy-series-label">Najwyższe kupno</span></label><span><i class="cost-key"></i> Zwrot kosztów</span><span><i class="target-key"></i> Cel zysku</span></div>
+          <p id="detail-chart-note" class="chart-footnote">Linie łączą dostępne punkty. Pokazują oferty, nie zawarte transakcje.</p>
+          <p id="detail-history-refresh" class="chart-footnote">Automatyczne pobieranie co 12 godz. Nowe odczyty cen zależą od źródła.</p>
           <div id="detail-threshold-hint" class="chart-threshold-hint">Wpisz swój koszt zakupu lub craftingu. Na wykresie pojawi się linia opłacalności, a po ustawieniu zysku — linia celu.</div>
           <details id="detail-history-table" class="history-table-details"><summary>Pokaż odczyty w tabeli</summary><div class="history-table-scroll"><table class="history-table"><thead><tr><th scope="col">Dzień UTC</th><th scope="col">Min. sprzedaży · Z</th><th scope="col">Maks. sprzedaży · Z</th><th scope="col">Najwyższe kupno · Z</th></tr></thead><tbody id="detail-history-rows"></tbody></table></div></details>
         </section>
@@ -97,6 +100,6 @@
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <noscript><div class="noscript">Włącz JavaScript, aby przeglądać oferty i mapę sklepów.</div></noscript>
-  <script type="module" src="./app.js?v=charts-2"></script>
+  <script type="module" src="./app.js?v=charts-3"></script>
 </body>
 </html>
