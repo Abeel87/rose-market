@@ -50,7 +50,9 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     if (!dialog.open) returnFocus = document.activeElement;
     item = nextItem;
     offers = currentOffers.filter(o => o.itemId === item.id);
-    selectedOffer = chosenOffer?.itemId === item.id ? chosenOffer : offers.find(o => o.type === 'sell') || offers[0] || null;
+    const sell = offers.filter(o => o.type === 'sell').sort((a, b) => a.price - b.price);
+    const buy = offers.filter(o => o.type === 'buy').sort((a, b) => b.price - a.price);
+    selectedOffer = chosenOffer?.itemId === item.id ? chosenOffer : sell[0] || buy[0] || null;
     const config = Object.hasOwn(saved, item.id) && saved[item.id] && typeof saved[item.id] === 'object' ? saved[item.id] : {};
     $('#detail-name').textContent = item.name;
     $('#detail-icon').src = item.icon || './assets/item.svg';
@@ -64,10 +66,8 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
       ? `Cena z odczytanej oferty ${selectedOffer.type === 'buy' ? 'kupna' : 'sprzedaży'} · ${selectedOffer.player}. Możesz wpisać własną cenę.`
       : 'Wpisz cenę, dla której chcesz policzyć wynik.';
     $('#detail-save-note').textContent = 'Twoje koszty zapamiętujemy dla tego przedmiotu na tym urządzeniu.';
-    const sell = offers.filter(o => o.type === 'sell');
-    const buy = offers.filter(o => o.type === 'buy');
-    const lowest = sell.length ? Math.min(...sell.map(o => o.price)) : null;
-    const highest = buy.length ? Math.max(...buy.map(o => o.price)) : null;
+    const lowest = sell[0]?.price ?? null;
+    const highest = buy[0]?.price ?? null;
     $('#detail-ask').textContent = lowest === null ? 'Brak ofert' : `${fmt(lowest)} Z`;
     $('#detail-bid').textContent = highest === null ? 'Brak ofert' : `${fmt(highest)} Z`;
     $('#use-market-cost').disabled = lowest === null;

@@ -1,5 +1,5 @@
 import { normalizeSnapshot, filterOffers, worldToMap } from './market.js';
-import { createItemDetail } from './item-detail.js?v=1';
+import { createItemDetail } from './item-detail.js?v=2';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
