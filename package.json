@@ -1,0 +1,8 @@
+{
+  "name": "rose-market",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ROSE Online — ceny i ostatnio zaobserwowane miejsca sklepów w Junon Polis",
+  "scripts": { "test": "node --test tests/*.test.mjs", "sync": "node scripts/sync-market.mjs", "check": "node --check dist/app.js && node --check dist/market.js" }
+}

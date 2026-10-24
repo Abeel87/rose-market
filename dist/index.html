@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101d28">
+  <meta name="description" content="Znajdź przedmioty, ceny i sklepy graczy ROSE Online. Oferty kupna i sprzedaży z ostatnio zaobserwowaną lokalizacją na mapie Junon Polis.">
+  <title>ROSE Market — sklepy i ceny w Junon</title>
+  <link rel="icon" href="./assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <a class="skip-link" href="#market-content">Przejdź do ofert</a>
+  <aside class="sidebar">
+    <a class="brand" href="#"><img src="./assets/mark.svg" alt="" width="38" height="38"><span>ROSE<span class="brand-secondary">MARKET</span></span></a>
+    <div class="server-label"><span class="small-orb"></span> ROSE Online · Junon</div>
+    <span class="nav-label">TWÓJ RYNEK</span>
+    <nav aria-label="Nawigacja główna">
+      <button class="nav-link active" data-view="offers"><span aria-hidden="true">▦</span> Oferty graczy</button>
+      <button class="nav-link" data-view="map"><span aria-hidden="true">⌖</span> Mapa sklepów</button>
+      <button class="nav-link" data-view="favorites"><span aria-hidden="true">☆</span> Obserwowane <span id="favorite-count" class="nav-count">0</span></button>
+      <button class="nav-link" data-view="about"><span aria-hidden="true">ⓘ</span> O danych</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="forge-card"><span class="eyebrow">PLANUJESZ CRAFT?</span><strong>Policz, czy się opłaca.</strong><p>Materiały i kalkulatory<br>w Twoim warsztacie.</p><a href="https://abeel87.github.io/rose-forge/" target="_blank" rel="noopener">Otwórz ROSE Forge <span aria-hidden="true">↗</span></a></div>
+      <a class="github-link" href="https://github.com/Abeel87/rose-market" target="_blank" rel="noopener">Projekt na GitHub ↗</a>
+      <span class="fan-label">Narzędzie społeczności graczy</span>
+    </div>
+  </aside>
+
+  <main id="market-content">
+    <header class="topbar"><span class="breadcrumb">ROSE Online <span>/</span> Rynek graczy</span><div class="topbar-right"><span class="location-label">⌖ Junon Polis</span><button id="refresh" class="subtle-button" title="Pobierz ponownie dane opublikowane na stronie"><span aria-hidden="true">↻</span> Odśwież</button></div></header>
+    <section class="hero" aria-labelledby="page-title">
+      <div><p class="eyebrow">PRZEDMIOT. CENA. MIEJSCE.</p><h1 id="page-title">Wiesz czego szukasz.<br><span>Teraz wiesz gdzie.</span></h1><p class="hero-copy">Oferty graczy i miejsca sklepów na mapie Junon Polis.</p></div>
+      <div class="snapshot-chip"><span class="snapshot-dot"></span><div><span>OSTATNI ODCZYT W GRZE</span><strong id="scan-time">Pobieranie danych…</strong><small id="scan-age">Czekamy na odczyt źródła</small></div></div>
+    </section>
+
+    <section class="stats" aria-label="Podsumowanie danych"><div class="stat"><span class="stat-icon">⌖</span><div><strong id="stat-stalls">—</strong><span>sklepów na mapie</span></div></div><div class="stat"><span class="stat-icon">◇</span><div><strong id="stat-items">—</strong><span>różnych przedmiotów</span></div></div><div class="stat"><span class="stat-icon sell-icon">↗</span><div><strong id="stat-sell">—</strong><span>ofert sprzedaży</span></div></div><div class="stat"><span class="stat-icon buy-icon">↙</span><div><strong id="stat-buy">—</strong><span>ofert kupna</span></div></div></section>
+
+    <div id="data-notice" class="data-notice"><span aria-hidden="true">◷</span><p>To ostatnio zaobserwowane oferty. Sklep może już być zamknięty, a cena zmieniona.</p><button class="text-button" data-view="about">Jak działają dane? ↗</button></div>
+    <div id="load-error" class="error-box" role="alert" hidden></div>
+    <section id="about-panel" class="about-panel" hidden aria-labelledby="about-title">
+      <p class="eyebrow">PRZEJRZYSTE ŹRÓDŁA</p><h2 id="about-title">Co pokazuje ROSE Market?</h2>
+      <p>Przeglądasz zapis ofert sklepów graczy z <strong>Junon Polis</strong>. Przy cenie i pozycji sklepu podajemy czas, w którym źródło widziało je w grze. To nie jest potwierdzenie, że gracz wciąż stoi w tym miejscu.</p>
+      <div class="about-grid"><article><h3>Skąd pochodzą oferty?</h3><p>Korzystamy z publicznego zestawienia <a href="https://roseonlinetoolbox.com/data/marketStalls.json" target="_blank" rel="noopener">ROSE Online Toolbox</a>. Jego źródłem jest <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a>. Mapa i ikony przedmiotów pochodzą z Toolbox. Prawa do materiałów gry należą do ich właścicieli.</p></article><article><h3>Kiedy dane się odświeżają?</h3><p>Strona sprawdza plik źródłowy dwa razy na dobę. Nowe pobranie pliku nie oznacza nowego skanu w grze. Przycisk „Odśwież” wczytuje ostatnie opublikowane dane tej strony.</p></article><article><h3>Co oznacza cena?</h3><p>To cena oferty w Zulie przekazana przez źródło. Zestawienie nie podaje ilości i jednostki ceny, dlatego nie przeliczamy wartości stosów. Parametry i ulepszenia sprawdź w sklepie w grze.</p></article><article><h3>Co zapisuje przeglądarka?</h3><p>Lista obserwowanych przedmiotów zostaje tylko na tym urządzeniu. Nie musisz zakładać konta. Wybrane oferty i wyszukiwania możesz udostępnić linkiem.</p></article></div>
+      <dl class="source-times"><div><dt>Ostatnia obserwacja w grze</dt><dd id="source-observed">—</dd></div><div><dt>Plik przygotowany przez źródło</dt><dd id="source-fetched">—</dd></div><div><dt>Ostatnia próba pobrania przez stronę</dt><dd id="source-synced">—</dd></div></dl>
+      <p class="small-muted">Zakres danych zależy od dostępności zewnętrznego źródła. Pusta lista wyników oznacza brak pasujących ofert w tym odczycie.</p>
+    </section>
+
+    <section id="market-panel" aria-label="Wyszukiwarka i mapa">
+      <div class="search-row"><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Szukaj przedmiotu lub nicku gracza…" aria-label="Szukaj przedmiotu lub nicku gracza" autocomplete="off"><kbd>/</kbd></label><button id="clear-filters" class="subtle-button">Wyczyść filtry</button></div>
+      <div class="filters"><div class="segmented" aria-label="Rodzaj ofert"><button data-type="sell" class="active" aria-pressed="true">Gracze sprzedają <span id="sell-filter-count"></span></button><button data-type="buy" aria-pressed="false">Gracze kupują <span id="buy-filter-count"></span></button><button data-type="all" aria-pressed="false">Wszystkie</button></div><label class="sort-label">Sortuj <select id="sort" aria-label="Sortowanie ofert"><option value="price-asc">Cena: od najniższej</option><option value="price-desc">Cena: od najwyższej</option><option value="name">Nazwa przedmiotu</option><option value="recent">Ostatnio widziane</option></select></label></div>
+      <div class="market-grid">
+        <section class="results-panel" aria-labelledby="results-title"><div class="panel-heading"><div><h2 id="results-title">Oferty sprzedaży</h2><p id="results-count" role="status" aria-live="polite">Wczytywanie…</p></div><span id="favorites-indicator" class="small-pill" hidden>★ Obserwowane</span></div>
+          <div class="table-scroll"><table class="offer-table"><thead><tr><th scope="col">Przedmiot</th><th scope="col">Cena · Zulie</th><th scope="col">Gracz / pozycja</th><th scope="col"><span class="sr-only">Mapa i obserwowanie</span></th></tr></thead><tbody id="offer-rows"></tbody></table></div>
+          <div id="empty-state" class="empty-state" hidden><span aria-hidden="true">⌕</span><h3 id="empty-title">Nie ma takiej oferty w tym odczycie</h3><p id="empty-message">Spróbuj skrócić nazwę albo zmienić rodzaj ofert.</p><button class="primary-button" id="empty-clear">Pokaż wszystkie oferty</button></div>
+          <div class="pagination"><span id="page-info">—</span><div><button id="prev-page" class="square-button" aria-label="Poprzednia strona">←</button><button id="next-page" class="square-button" aria-label="Następna strona">→</button></div></div>
+        </section>
+        <aside class="map-panel" aria-labelledby="map-title"><div class="panel-heading"><div><p class="eyebrow">MIEJSCE SKLEPU</p><h2 id="map-title">Junon Polis</h2></div><span id="map-count" class="small-pill">— sklepów</span></div>
+          <div class="map-frame" id="map-frame"><svg id="junon-map" viewBox="200 100 300 300" role="group" aria-label="Mapa Junon Polis z ostatnio zaobserwowanymi sklepami" xmlns="http://www.w3.org/2000/svg"><defs><filter id="marker-glow"><feGaussianBlur stdDeviation="2"/></filter></defs><image href="./assets/junon-polis.png" x="0" y="0" width="576" height="512"/><g id="map-markers"></g></svg><span class="map-north" aria-hidden="true">N<br>↑</span><div class="map-controls"><button id="zoom-in" aria-label="Przybliż mapę">+</button><button id="zoom-out" aria-label="Oddal mapę">−</button><button id="reset-map" aria-label="Pokaż całe miasto" title="Pokaż całe miasto">⌖</button></div><div class="map-hint">Przeciągnij mapę · wybierz sklep</div></div>
+          <div class="map-legend"><span><i></i> Sklep z pasującą ofertą</span><span><i class="selected-dot"></i> Wybrany sklep</span></div>
+          <div id="shop-details" class="shop-details"><div class="shop-empty"><span aria-hidden="true">⌖</span><h3>Dokąd ruszamy?</h3><p>Wybierz „Mapa” przy ofercie lub kliknij znacznik, aby zobaczyć nick i współrzędne sklepu.</p></div></div>
+        </aside>
+      </div>
+    </section>
+    <footer class="page-footer"><span>ROSE Market <span class="footer-divider">/</span> dla społeczności ROSE Online</span><span>Dane: <a href="https://roseonlinetoolbox.com/market?tab=map" target="_blank" rel="noopener">Toolbox</a> · <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a></span></footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <noscript><div class="noscript">Włącz JavaScript, aby przeglądać oferty i mapę sklepów.</div></noscript>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
