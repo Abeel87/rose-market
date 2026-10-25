@@ -1,5 +1,6 @@
 import { calculateProfitability } from './profit.js?v=1';
 import { buildItemHistory } from './chart-data.js?v=1';
+import { syncLabel, latestObservationDate } from './data-status.js?v=1';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = value => value === null || value === undefined ? '—' : new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 }).format(value);
@@ -145,7 +146,10 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     else label.textContent = `${currentSeries.points.length} dni z odczytami · ${day(currentSeries.points[0].date)}–${day(currentSeries.points.at(-1).date)} w wybranym zakresie ${period} dni. Pokazujemy tylko dni z otrzymanymi cenami.`;
     const fetchedAt = history?.data?.fetchedAt;
     const refreshTime = fetchedAt && Number.isFinite(Date.parse(fetchedAt)) ? `Historia pobrana: ${dated(fetchedAt)} (PL). ` : '';
-    $('#detail-history-refresh').textContent = `${refreshTime}Automatyczne pobieranie co 12 godz. Nowe odczyty cen zależą od źródła.`;
+    const observedThrough = latestObservationDate(history?.data);
+    const observationTime = observedThrough ? `Najnowszy dzień notowań w bazie: ${observedThrough} (UTC). ` : '';
+    const syncState = history?.status ? `${syncLabel(history.status)}. ` : '';
+    $('#detail-history-refresh').textContent = `${refreshTime}${observationTime}${syncState}Harmonogram: 08:37 i 20:37 UTC; uruchomienia mogą być opóźnione. Nowe odczyty cen zależą od źródła.`;
     $('#detail-threshold-hint').hidden = result.status !== 'needs-cost';
     renderChart(currentSeries.points, result);
     renderHistoryTable(currentSeries.points);

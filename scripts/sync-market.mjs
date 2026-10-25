@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { normalizeSnapshot } from '../dist/market.js';
 
 export const SOURCE_URL = 'https://roseonlinetoolbox.com/data/marketStalls.json';
@@ -49,7 +50,8 @@ async function fetchSnapshot(fetchImpl) {
       },
     });
     if (!response.ok || !response.body) {
-      throw new SyncError('Źródło danych nie zwróciło poprawnej odpowiedzi.');
+      await response.body?.cancel();
+      throw new SyncError(`Źródło danych nie zwróciło poprawnej odpowiedzi (HTTP ${response.status}).`);
     }
     const declaredLength = Number(response.headers.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > MAX_BYTES) {
@@ -94,12 +96,16 @@ export async function syncMarket({
     readJsonOrNull(statusPath),
   ]);
   const previousFetchedAt = timestamp(previousSnapshot?._meta?.fetchedAt);
+  let previous = null;
+  try { previous = normalizeSnapshot(previousSnapshot); } catch { /* A valid download can repair a bad local copy. */ }
   const status = {
     attemptedAt,
     success: false,
     lastSuccessAt: timestamp(previousStatus?.lastSuccessAt),
     snapshotFetchedAt: previousFetchedAt,
     sourceUrl: SOURCE_URL,
+    dataChanged: null,
+    latestObservationAt: previous?.stats.lastSeenAt ?? null,
   };
 
   try {
@@ -117,7 +123,11 @@ export async function syncMarket({
     if (!incomingFetchedAt) {
       throw new SyncError('Źródło nie podaje poprawnej daty pobrania danych.');
     }
-    if (previousFetchedAt && Date.parse(incomingFetchedAt) < Date.parse(previousFetchedAt)) {
+    if (Date.parse(incomingFetchedAt) > Date.parse(attemptedAt) + 300_000
+      || Date.parse(normalized.stats.lastSeenAt) > Date.parse(incomingFetchedAt) + 300_000) {
+      throw new SyncError('Źródło zawiera daty z przyszłości; zachowano poprzedni plik.');
+    }
+    if (previous && previousFetchedAt && Date.parse(incomingFetchedAt) < Date.parse(previousFetchedAt)) {
       throw new SyncError('Źródło zwróciło starszą kopię danych; zachowano poprzedni plik.');
     }
 
@@ -126,6 +136,9 @@ export async function syncMarket({
     status.success = true;
     status.lastSuccessAt = attemptedAt;
     status.snapshotFetchedAt = incomingFetchedAt;
+    status.dataChanged = !previous || !isDeepStrictEqual(
+      [previousSnapshot.items, previousSnapshot.stalls], [incoming.items, incoming.stalls]);
+    status.latestObservationAt = normalized.stats.lastSeenAt;
   } catch (error) {
     status.error = error instanceof SyncError
       ? error.message
@@ -140,7 +153,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const status = await syncMarket();
     if (status.success) {
-      console.log(`Dane pobrane poprawnie. Data kopii źródłowej: ${status.snapshotFetchedAt}`);
+      console.log(`Dane pobrane poprawnie (${status.dataChanged ? 'zmienione dane' : 'dane bez zmian'}). Data kopii źródłowej: ${status.snapshotFetchedAt}; ostatnia obserwacja: ${status.latestObservationAt}`);
     } else {
       console.error(status.error);
       process.exitCode = 1;

@@ -5,8 +5,7 @@ on:
     branches: [main]
     paths:
       - 'dist/**'
-      - 'scripts/sync-market.mjs'
-      - 'scripts/sync-history.mjs'
+      - 'scripts/**'
       - 'tests/**'
       - 'package.json'
       - '.github/workflows/pages.yml'
@@ -34,6 +33,17 @@ jobs:
       - name: Read project source
         uses: actions/checkout@v7
 
+      - name: Verify code before contacting data sources
+        run: |
+          npm run check
+          npm test
+
+      - name: Restore the last published data before refreshing
+        run: node scripts/published-data.mjs
+
+      - name: Record the start of this refresh
+        run: node --input-type=module -e 'import { appendFileSync } from "node:fs"; appendFileSync(process.env.GITHUB_ENV, `REFRESH_STARTED_AT=${new Date().toISOString()}\n`);'
+
       - name: Refresh the market snapshot
         id: sync
         continue-on-error: true
@@ -48,49 +58,7 @@ jobs:
         env:
           SYNC_OUTCOME: ${{ steps.sync.outcome }}
           HISTORY_OUTCOME: ${{ steps.history.outcome }}
-        run: |
-          node --input-type=module <<'NODE'
-          import { appendFileSync, readFileSync } from 'node:fs';
-          for (const [name, file, outcome] of [
-            ['Rynek', 'sync-status.json', process.env.SYNC_OUTCOME],
-            ['Historia cen', 'history-status.json', process.env.HISTORY_OUTCOME],
-          ]) {
-            const status = JSON.parse(readFileSync(`dist/data/${file}`, 'utf8'));
-            if (typeof status.success !== 'boolean' || !status.attemptedAt) {
-              throw new Error(`Missing or invalid refresh status: ${name}.`);
-            }
-            if (outcome === 'failure' && status.success) {
-              throw new Error(`The refresh failed without an honest failure status: ${name}.`);
-            }
-            const note = status.success
-              ? 'Pobrano i sprawdzono komplet danych. Czas pobrania nie zastępuje dat obserwacji.'
-              : 'Odświeżenie nie powiodło się. Publikowana jest zweryfikowana kopia zapasowa, z widocznym statusem błędu.';
-            appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-              `## ${name}\n\n${note}\n\nPróba: ${status.attemptedAt}\n\nData kopii danych: ${status.snapshotFetchedAt ?? 'nieznana'}\n`);
-            if (!status.success) console.log(`::warning::${name}: refresh failed; publishing the validated fallback with failure status.`);
-          }
-          NODE
-
-      - name: Verify source and the snapshot being published
-        run: |
-          node --check dist/app.js
-          node --check dist/market.js
-          node --check dist/item-detail.js
-          node --check dist/chart-data.js
-          node --check dist/profit.js
-          node --check scripts/sync-market.mjs
-          node --check scripts/sync-history.mjs
-          npm test
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          import { normalizeSnapshot } from './dist/market.js';
-          import { validateHistory } from './scripts/sync-history.mjs';
-          const data = normalizeSnapshot(JSON.parse(readFileSync('dist/data/market-stalls.json', 'utf8')));
-          if (!data.stats.items || !data.stats.stalls || !data.stats.offers) throw new Error('No usable fallback snapshot.');
-          console.log(`Validated ${data.stats.stalls} shop records and ${data.stats.offers} offers.`);
-          const history = validateHistory(JSON.parse(readFileSync('dist/data/price-history.json', 'utf8')));
-          console.log(`Validated price history for ${Object.keys(history.items).length} items.`);
-          NODE
+        run: node scripts/report-sync.mjs
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -103,3 +71,11 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      # Deploy the validated fallback and its honest error status first. Still mark
+      # the run failed if a source refresh failed; a deployment is not a data check.
+      - name: Require successful data synchronization
+        if: steps.sync.outcome != 'success' || steps.history.outcome != 'success'
+        run: |
+          echo '::error::The fallback was published, but a data refresh failed. See the refresh summary.'
+          exit 1

@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 export const HISTORY_SOURCE = 'https://api.roseonlinetoolbox.com/api/v1/prices';
 const DATA_DIRECTORY = fileURLToPath(new URL('../dist/data/', import.meta.url));
@@ -173,7 +174,7 @@ async function fetchPage(page, fetchImpl, requestState, signal) {
       }
       if (!response.ok) {
         await response.body?.cancel();
-        fail('Źródło historii nie zwróciło poprawnej odpowiedzi.');
+        fail(`Źródło historii nie zwróciło poprawnej odpowiedzi (HTTP ${response.status}).`);
       }
       return await readBoundedJson(response);
     } finally {
@@ -283,6 +284,15 @@ async function writeAtomically(path, value) {
   } finally { await unlink(temporary).catch(() => {}); }
 }
 
+export function latestHistoryDate(history) {
+  let latest = null;
+  for (const item of Object.values(history?.items ?? {})) {
+    const date = item.points.at(-1)?.date;
+    if (date && (!latest || date > latest)) latest = date;
+  }
+  return latest;
+}
+
 export async function syncHistory({ dataDirectory = DATA_DIRECTORY, fetchImpl = globalThis.fetch,
   clock = () => new Date(), onProgress = () => {} } = {}) {
   const historyPath = join(dataDirectory, 'price-history.json');
@@ -292,7 +302,8 @@ export async function syncHistory({ dataDirectory = DATA_DIRECTORY, fetchImpl = 
   try { if (storedHistory) previous = validateHistory(storedHistory); } catch { /* A valid new API result can replace an invalid fallback. */ }
   const status = { attemptedAt: clock().toISOString(), success: false,
     lastSuccessAt: isTimestamp(oldStatus?.lastSuccessAt) ? oldStatus.lastSuccessAt : null,
-    snapshotFetchedAt: previous?.fetchedAt ?? null, sourceUrl: HISTORY_SOURCE };
+    snapshotFetchedAt: previous?.fetchedAt ?? null, sourceUrl: HISTORY_SOURCE,
+    dataChanged: null, latestObservationDate: latestHistoryDate(previous) };
   try {
     const records = await fetchRecords(fetchImpl, onProgress);
     const history = aggregateHistory(records, clock().toISOString(), previous);
@@ -303,6 +314,10 @@ export async function syncHistory({ dataDirectory = DATA_DIRECTORY, fetchImpl = 
     status.snapshotFetchedAt = history.fetchedAt;
     status.recordCount = records.length;
     status.itemCount = Object.keys(history.items).length;
+    // Ignore the local download time when deciding whether the observations changed.
+    status.dataChanged = !previous || !isDeepStrictEqual(
+      JSON.parse(JSON.stringify(previous.items)), JSON.parse(JSON.stringify(history.items)));
+    status.latestObservationDate = latestHistoryDate(history);
   } catch (error) {
     status.error = error instanceof HistoryError ? error.message : 'Nie udało się odświeżyć historii cen. Dostępna kopia pozostaje bez zmian.';
   }
@@ -315,7 +330,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const status = await syncHistory({ onProgress: ({ completed, total }) => {
       if (completed === 1 || completed === total || completed % 10 === 1) console.log(`Historia cen: pobrano ${completed}/${total} stron.`);
     } });
-    if (status.success) console.log(`Historia zapisana: ${status.recordCount} rekordów cen, ${status.itemCount} przedmiotów.`);
+    if (status.success) console.log(`Historia zapisana (${status.dataChanged ? 'zmienione dane' : 'dane bez zmian'}): ${status.recordCount} rekordów cen, ${status.itemCount} przedmiotów. Ostatni dzień obserwacji: ${status.latestObservationDate}`);
     else { console.error(status.error); process.exitCode = 1; }
   } catch {
     console.error('Nie udało się zapisać statusu odświeżenia historii cen.');
