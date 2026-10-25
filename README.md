@@ -34,11 +34,17 @@ GitHub Actions publikuje katalog `dist/` przez GitHub Pages:
 
 - po zmianach kodu, danych lub konfiguracji na gałęzi `main`;
 - po ręcznym uruchomieniu workflow **Publish ROSE Market**;
-- według harmonogramu o **08:37 i 20:37 UTC** każdego dnia.
+- według harmonogramu o **08:37 i 20:37 UTC** każdego dnia, czyli zimą o 09:37 i 21:37, a latem o 10:37 i 22:37 w Polsce.
+
+To godziny harmonogramu, a nie gwarantowane terminy wykonania. GitHub Actions może opóźniać zadania. Przycisk „Odśwież” pobiera aktualną publikację Pages; nie uruchamia skanowania gry ani workflow.
 
 Przy publikacji skrypt `scripts/sync-market.mjs` wykonuje jedno pobranie HTTPS ze wskazanego źródła, z limitem czasu 25 sekund i rozmiaru 8 MiB. Sprawdza schemat przez `normalizeSnapshot`, odrzuca puste lub starsze kopie i dopiero potem atomowo zastępuje plik danych. Nie zmienia czasów obserwacji na czas uruchomienia skryptu.
 
-Jeśli pobranie lub walidacja się nie powiedzie, skrypt zachowuje dostępną kopię i zapisuje status błędu. Workflow może wtedy opublikować zweryfikowaną **kopię zapasową z repozytorium** wraz z tym statusem. Nowe dane trafiają do publikowanej strony; automatyczne uruchomienia nie dopisują commitów do repozytorium. Częstsze uruchomienie workflow nie przyspiesza aktualizacji danych u dostawcy.
+Przed pobieraniem ze źródeł `scripts/published-data.mjs` odtwarza **ostatnią poprawną kopię z opublikowanej strony**, razem ze statusami rynku i historii. Sprawdza wszystkie cztery pliki oraz zgodność dat statusu z danymi. Kopia z czystego checkoutu nie zastępuje nowszego opublikowanego stanu. Jeśli nie można odczytać lub zweryfikować publikacji, workflow zatrzymuje się przed wdrożeniem i zostawia działającą stronę. Nowszy ręczny import historii w repozytorium wymaga uzgodnienia z publikacją, aby nie zgubić żadnej historii.
+
+Jeśli pobranie ze źródła lub walidacja się nie powiedzie, skrypt zachowuje odtworzoną kopię i zapisuje nowy status błędu. Workflow publikuje zweryfikowane dane zapasowe wraz z tym statusem, a potem oznacza uruchomienie jako nieudane. Błąd synchronizacji nie jest więc ukryty za udaną publikacją strony. Nie wolno publikować statusu z poprzedniego uruchomienia, jeżeli nowy skrypt przerwał pracę bez zapisania wyniku.
+
+`success` oznacza udane pobranie i walidację; `dataChanged` rozróżnia zmienione dane (`true`), identyczne obserwacje (`false`) i nieudaną próbę (`null`). `latestObservationAt` rynku oraz `latestObservationDate` historii wskazują czas rzeczywistych obserwacji, niezależny od czasu pobrania. Stare obserwacje generują ostrzeżenie, nawet kiedy pobranie jest udane. Nowe dane trafiają do publikowanej strony; automatyczne uruchomienia nie dopisują commitów do repozytorium. Częstsze uruchomienie workflow nie przyspiesza aktualizacji danych u dostawcy.
 
 ## Historia cen
 
@@ -52,7 +58,7 @@ Są to **notowania ofert, a nie potwierdzone transakcje**. Pola `sellCount` i `b
 
 Pobranie obejmuje wszystkie strony odpowiedzi: po 100 rekordów, maksymalnie 100 stron i 10 000 rekordów. Działają najwyżej dwa równoległe zapytania. Skrypt sprawdza spójność paginacji, unikalność identyfikatorów rekordów, serwer, typ oferty, nazwę i identyfikator przedmiotu, całkowitą nieujemną cenę oraz datę obserwacji. Każde zapytanie ma limit 25 sekund, całość pięć minut. Przy HTTP 429 respektuje krótki `Retry-After`, z ograniczoną liczbą ponowień; dłuższe ograniczenie kończy próbę i zachowuje poprzednią kopię.
 
-Nowa kompletna odpowiedź zastępuje nakładające się koszyki dnia i typu oferty, aby ponowne pobranie nie podwajało liczników. Starsze punkty dostępne w zapisanej kopii są zachowywane, jeżeli API już ich nie zwraca; pozostaje najwyżej 90 dni. Kopia początkowa i przyszłe aktualizacje zawierają tylko rzeczywiście dostarczone notowania — aplikacja nie dopisuje sztucznych dni ani nie prowadzi niezależnego zapisu wszystkich codziennych sklepów. GitHub Actions aktualizuje publikowaną stronę bez automatycznych commitów; trwałość dalszej historii zależy od zakresu API oraz kopii obecnej w repozytorium.
+Nowa kompletna odpowiedź zastępuje nakładające się koszyki dnia i typu oferty, aby ponowne pobranie nie podwajało liczników. Starsze punkty dostępne w zapisanej kopii są zachowywane, jeżeli API już ich nie zwraca; pozostaje najwyżej 90 dni. Kopia początkowa i przyszłe aktualizacje zawierają tylko rzeczywiście dostarczone notowania — aplikacja nie dopisuje sztucznych dni ani nie prowadzi niezależnego zapisu wszystkich codziennych sklepów. GitHub Actions aktualizuje publikowaną stronę bez automatycznych commitów. Kolejny import korzysta z ostatniej opublikowanej historii i zachowuje dostępne wcześniejsze punkty w oknie 90 dni, nawet jeśli źródło już ich nie zwraca.
 
 Status pobrania historii jest oddzielony od statusu mapy sklepów i zapisany w `dist/data/history-status.json`. Błąd sieci, niepełna odpowiedź lub zmiana schematu nie nadpisują dobrej historii i nie oznaczają jej jako odświeżonej.
 
@@ -72,6 +78,8 @@ Sprawdzenie kodu i testów wymaga Node.js:
 npm test
 npm run check
 ```
+
+Testy synchronizacji używają wyłącznie izolowanych katalogów tymczasowych i odpowiedzi testowych. Obejmują pełną paginację, powtórny import, rozdzielenie kupna i sprzedaży, niepełne/niepoprawne dane, HTTP 429/503, stare kopie, daty z przyszłości oraz kolejne publikacje po awarii. Testy PR nie kontaktują się ze źródłami i nie publikują strony.
 
 Ręczne pobranie danych:
 

@@ -43,7 +43,7 @@
     <section id="about-panel" class="about-panel" hidden aria-labelledby="about-title">
       <p class="eyebrow">PRZEJRZYSTE ŹRÓDŁA</p><h2 id="about-title">Co pokazuje ROSE Market?</h2>
       <p>Przeglądasz zapis ofert sklepów graczy z <strong>Junon Polis</strong>. Przy cenie i pozycji sklepu podajemy czas, w którym źródło widziało je w grze. To nie jest potwierdzenie, że gracz wciąż stoi w tym miejscu.</p>
-      <div class="about-grid"><article><h3>Skąd pochodzą oferty?</h3><p>Korzystamy z publicznego zestawienia <a href="https://roseonlinetoolbox.com/data/marketStalls.json" target="_blank" rel="noopener">ROSE Online Toolbox</a>. Jego źródłem jest <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a>. Mapa i ikony przedmiotów pochodzą z Toolbox. Prawa do materiałów gry należą do ich właścicieli.</p></article><article><h3>Kiedy dane się odświeżają?</h3><p>Strona sprawdza plik źródłowy dwa razy na dobę. Nowe pobranie pliku nie oznacza nowego skanu w grze. Przycisk „Odśwież” wczytuje ostatnie opublikowane dane tej strony.</p></article><article><h3>Co oznacza cena?</h3><p>To cena oferty w Zulie przekazana przez źródło. Zestawienie nie podaje ilości i jednostki ceny, dlatego nie przeliczamy wartości stosów. Parametry i ulepszenia sprawdź w sklepie w grze.</p></article><article><h3>Co zapisuje przeglądarka?</h3><p>Lista obserwowanych przedmiotów zostaje tylko na tym urządzeniu. Nie musisz zakładać konta. Wybrane oferty i wyszukiwania możesz udostępnić linkiem.</p></article></div>
+      <div class="about-grid"><article><h3>Skąd pochodzą oferty?</h3><p>Korzystamy z publicznego zestawienia <a href="https://roseonlinetoolbox.com/data/marketStalls.json" target="_blank" rel="noopener">ROSE Online Toolbox</a>. Jego źródłem jest <a href="https://roseutils.com/" target="_blank" rel="noopener">RoseUtils</a>. Mapa i ikony przedmiotów pochodzą z Toolbox. Prawa do materiałów gry należą do ich właścicieli.</p></article><article><h3>Kiedy dane się odświeżają?</h3><p>Harmonogram sprawdzania obu źródeł: 08:37 i 20:37 UTC (zimą 09:37 i 21:37 w Polsce, latem 10:37 i 22:37). GitHub Actions może uruchamiać zadania z opóźnieniem. Nowe pobranie pliku nie oznacza nowego skanu w grze. Przycisk „Odśwież” wczytuje ostatnie opublikowane dane tej strony.</p></article><article><h3>Co oznacza cena?</h3><p>To cena oferty w Zulie przekazana przez źródło. Zestawienie nie podaje ilości i jednostki ceny, dlatego nie przeliczamy wartości stosów. Parametry i ulepszenia sprawdź w sklepie w grze.</p></article><article><h3>Co zapisuje przeglądarka?</h3><p>Lista obserwowanych przedmiotów zostaje tylko na tym urządzeniu. Nie musisz zakładać konta. Wybrane oferty i wyszukiwania możesz udostępnić linkiem.</p></article></div>
       <dl class="source-times"><div><dt>Ostatnia obserwacja w grze</dt><dd id="source-observed">—</dd></div><div><dt>Plik przygotowany przez źródło</dt><dd id="source-fetched">—</dd></div><div><dt>Ostatnia próba pobrania przez stronę</dt><dd id="source-synced">—</dd></div></dl>
       <p class="small-muted">Zakres danych zależy od dostępności zewnętrznego źródła. Pusta lista wyników oznacza brak pasujących ofert w tym odczycie.</p>
     </section>
@@ -79,7 +79,7 @@
           <p id="detail-chart-reading" class="chart-reading" hidden></p>
           <div class="chart-legend"><label><input id="show-sell" type="checkbox" checked><i></i> <span id="sell-series-label">Najniższa sprzedaż</span></label><label><input id="show-buy" type="checkbox" checked><i class="buy-key"></i> <span id="buy-series-label">Najwyższe kupno</span></label><span><i class="cost-key"></i> Zwrot kosztów</span><span><i class="target-key"></i> Cel zysku</span></div>
           <p id="detail-chart-note" class="chart-footnote">Linie łączą dostępne punkty. Pokazują oferty, nie zawarte transakcje.</p>
-          <p id="detail-history-refresh" class="chart-footnote">Automatyczne pobieranie co 12 godz. Nowe odczyty cen zależą od źródła.</p>
+          <p id="detail-history-refresh" class="chart-footnote">Harmonogram: 08:37 i 20:37 UTC; uruchomienia mogą być opóźnione. Nowe odczyty cen zależą od źródła.</p>
           <div id="detail-threshold-hint" class="chart-threshold-hint">Wpisz swój koszt zakupu lub craftingu. Na wykresie pojawi się linia opłacalności, a po ustawieniu zysku — linia celu.</div>
           <details id="detail-history-table" class="history-table-details"><summary>Pokaż odczyty w tabeli</summary><div class="history-table-scroll"><table class="history-table"><thead><tr><th scope="col">Dzień UTC</th><th scope="col">Min. sprzedaży · Z</th><th scope="col">Maks. sprzedaży · Z</th><th scope="col">Najwyższe kupno · Z</th></tr></thead><tbody id="detail-history-rows"></tbody></table></div></details>
         </section>
@@ -100,6 +100,6 @@
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <noscript><div class="noscript">Włącz JavaScript, aby przeglądać oferty i mapę sklepów.</div></noscript>
-  <script type="module" src="./app.js?v=charts-3"></script>
+  <script type="module" src="./app.js?v=sync-4"></script>
 </body>
 </html>

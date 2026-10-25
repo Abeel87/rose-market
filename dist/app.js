@@ -1,5 +1,6 @@
 import { normalizeSnapshot, filterOffers, worldToMap } from './market.js';
-import { createItemDetail } from './item-detail.js?v=3';
+import { createItemDetail } from './item-detail.js?v=4';
+import { syncLabel } from './data-status.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -98,13 +99,13 @@ function renderMetadata() {
   $('#source-observed').textContent = fullDate(stats.lastSeenAt);
   $('#source-fetched').textContent = fullDate(meta.fetchedAt);
   $('#source-synced').textContent = syncStatus?.attemptedAt
-    ? `${fullDate(syncStatus.attemptedAt)} · ${syncStatus.success ? 'plik pobrany poprawnie' : 'błąd — pokazujemy zachowaną kopię'}`
+    ? `${fullDate(syncStatus.attemptedAt)} · ${syncLabel(syncStatus)}`
     : 'Kopia początkowa — status sprawdzenia jeszcze niedostępny';
   const hoursOld = (Date.now() - new Date(stats.lastSeenAt).getTime()) / 3600000;
   $('#data-notice p').textContent = syncStatus?.success === false
     ? 'Ostatnie odświeżenie źródła nie powiodło się. Pokazujemy zachowaną kopię — sprawdź czas odczytu.'
     : hoursOld > 24
-      ? `Ten odczyt ma ponad ${Math.floor(hoursOld)} godz. Sklepy i ceny mogły się zmienić; sprawdź ofertę w grze.`
+      ? `Ten odczyt ma ponad ${Math.floor(hoursOld)} godz. ${syncStatus?.dataChanged === false ? 'Źródło nadal udostępnia te same dane. ' : ''}Sklepy i ceny mogły się zmienić; sprawdź ofertę w grze.`
       : 'To ostatnio zaobserwowane oferty. Sklep może już być zamknięty, a cena zmieniona.';
 }
 function renderNavigation() {
