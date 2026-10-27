@@ -150,16 +150,8 @@ export async function syncMarket({
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const status = await syncMarket();
-    if (status.success) {
-      console.log(`Dane pobrane poprawnie (${status.dataChanged ? 'zmienione dane' : 'dane bez zmian'}). Data kopii źródłowej: ${status.snapshotFetchedAt}; ostatnia obserwacja: ${status.latestObservationAt}`);
-    } else {
-      console.error(status.error);
-      process.exitCode = 1;
-    }
-  } catch {
-    console.error('Nie udało się zapisać statusu odświeżenia danych.');
-    process.exitCode = 1;
-  }
+  // Keep validation/import functions for archive tests. This old entrypoint
+  // must not download a frozen source or create a circular CLI import.
+  console.error('Źródło zakończyło aktualizacje 24.10.2026. Nie pobrano danych. Użyj npm run sync, aby zapisać status archiwum.');
+  process.exitCode = 1;
 }

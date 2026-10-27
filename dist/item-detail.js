@@ -1,6 +1,6 @@
 import { calculateProfitability } from './profit.js?v=1';
 import { buildItemHistory } from './chart-data.js?v=1';
-import { syncLabel, latestObservationDate } from './data-status.js?v=1';
+import { ARCHIVE_END_AT, syncLabel, latestObservationDate } from './data-status.js?v=archive-1';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = value => value === null || value === undefined ? '—' : new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 }).format(value);
@@ -64,7 +64,7 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     $('#detail-target').value = typeof config.targetProfit === 'string' ? config.targetProfit.slice(0, 100) : '0';
     $('#detail-sale').value = selectedOffer ? String(selectedOffer.price) : '';
     $('#detail-reference').textContent = selectedOffer
-      ? `Cena z odczytanej oferty ${selectedOffer.type === 'buy' ? 'kupna' : 'sprzedaży'} · ${selectedOffer.player}. Możesz wpisać własną cenę.`
+      ? `Cena z archiwalnej oferty ${selectedOffer.type === 'buy' ? 'kupna' : 'sprzedaży'} · ${selectedOffer.player} · ${dated(selectedOffer.seenAt)} (PL). Możesz wpisać własną cenę.`
       : 'Wpisz cenę, dla której chcesz policzyć wynik.';
     $('#detail-save-note').textContent = 'Twoje koszty zapamiętujemy dla tego przedmiotu na tym urządzeniu.';
     const lowest = sell[0]?.price ?? null;
@@ -74,7 +74,7 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
     $('#use-market-cost').disabled = lowest === null;
     $('#use-market-cost').dataset.price = lowest === null ? '' : String(lowest);
     const latest = offers.length ? offers.map(o => o.seenAt).sort().at(-1) : null;
-    $('#detail-observed').textContent = latest ? `Odczyt sklepów: ${dated(latest)} (PL)` : 'Brak aktualnego odczytu sklepów';
+    $('#detail-observed').textContent = latest ? `Archiwalny odczyt sklepów: ${dated(latest)} (PL)` : 'Brak odczytu sklepów w archiwum';
     renderOffers();
     if (!dialog.open) dialog.showModal();
     dialog.scrollTop = 0;
@@ -137,19 +137,19 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
               ? 'Przy tej cenie pokrywasz koszty, ale jeszcze nie osiągasz celu.'
               : 'Przy tej cenie nie odzyskujesz całego kosztu.';
     const label = $('#detail-history-status');
-    currentSeries = buildItemHistory(history?.data || null, item.name, offers, { days: period });
-    if (historyLoading) label.textContent = 'Wczytujemy historię. Widoczny punkt pochodzi z odczytu sklepów.';
-    else if (history?.error) label.textContent = 'Historia jest chwilowo niedostępna. Pokazujemy wyłącznie dostępne odczyty sklepów.';
-    else if (history?.status?.success === false) label.textContent = 'Ostatnie pobranie historii nie powiodło się. Pokazujemy zachowane dane i odczyt sklepów.';
+    // Keep the archived ranges useful as time passes; the UI states their end date.
+    currentSeries = buildItemHistory(history?.data || null, item.name, offers, { days: period, now: ARCHIVE_END_AT });
+    if (historyLoading) label.textContent = 'Wczytujemy archiwum historii. Widoczny punkt pochodzi z archiwalnego odczytu sklepów.';
+    else if (history?.error) label.textContent = 'Nie udało się wczytać archiwum historii. Pokazujemy dostępne archiwalne odczyty sklepów.';
     else if (currentSeries.points.length === 0) label.textContent = 'Brak odczytów w tym zakresie. Wybierz dłuższy okres.';
     else if (currentSeries.points.length === 1) label.textContent = 'Dostępny jest jeden dzień obserwacji. Nie dopisujemy wcześniejszych cen.';
-    else label.textContent = `${currentSeries.points.length} dni z odczytami · ${day(currentSeries.points[0].date)}–${day(currentSeries.points.at(-1).date)} w wybranym zakresie ${period} dni. Pokazujemy tylko dni z otrzymanymi cenami.`;
+    else label.textContent = `${currentSeries.points.length} dni z archiwalnymi odczytami · ${day(currentSeries.points[0].date)}–${day(currentSeries.points.at(-1).date)} w wybranym zakresie ${period} dni. Pokazujemy tylko dni z otrzymanymi cenami.`;
     const fetchedAt = history?.data?.fetchedAt;
-    const refreshTime = fetchedAt && Number.isFinite(Date.parse(fetchedAt)) ? `Historia pobrana: ${dated(fetchedAt)} (PL). ` : '';
+    const refreshTime = fetchedAt && Number.isFinite(Date.parse(fetchedAt)) ? `Kopia historii zapisana: ${dated(fetchedAt)} (PL). ` : '';
     const observedThrough = latestObservationDate(history?.data);
-    const observationTime = observedThrough ? `Najnowszy dzień notowań w bazie: ${observedThrough} (UTC). ` : '';
-    const syncState = history?.status ? `${syncLabel(history.status)}. ` : '';
-    $('#detail-history-refresh').textContent = `${refreshTime}${observationTime}${syncState}Harmonogram: 08:37 i 20:37 UTC; uruchomienia mogą być opóźnione. Nowe odczyty cen zależą od źródła.`;
+    const observationTime = observedThrough ? `Ostatni dzień notowań w archiwum: ${observedThrough} (UTC). ` : '';
+    const syncState = `${syncLabel(history?.status, { sourceRetired: true })}. `;
+    $('#detail-history-refresh').textContent = `${observationTime}${syncState}Zakresy 7, 30 i 90 dni kończą się 24.10.2026. ${refreshTime}`;
     $('#detail-threshold-hint').hidden = result.status !== 'needs-cost';
     renderChart(currentSeries.points, result);
     renderHistoryTable(currentSeries.points);
@@ -242,7 +242,7 @@ export function createItemDetail({ onClose, onSelectOffer, onSearchItem }) {
   function renderOffers() {
     const sorted = [...offers].sort((a, b) => a.type.localeCompare(b.type) || (a.type === 'buy' ? b.price - a.price : a.price - b.price));
     $('#detail-offer-count').textContent = `${offers.length}`;
-    $('#detail-offers').innerHTML = sorted.slice(0, 10).map(o => `<button class="detail-offer" data-detail-offer="${esc(o.id)}"><span><strong>${esc(o.player)}</strong><small>${o.type === 'sell' ? 'Sprzedaje' : 'Kupuje'} · X ${fmt(o.x)} / Y ${fmt(o.y)}</small></span><span><b>${fmt(o.price)} Z</b><small>Pokaż sklep ↗</small></span></button>`).join('') || '<p class="detail-muted">Brak ofert tego przedmiotu w odczycie sklepów.</p>';
+    $('#detail-offers').innerHTML = sorted.slice(0, 10).map(o => `<button class="detail-offer" data-detail-offer="${esc(o.id)}"><span><strong>${esc(o.player)}</strong><small>${o.type === 'sell' ? 'Sprzedaż' : 'Kupno'} w archiwum · X ${fmt(o.x)} / Y ${fmt(o.y)}</small></span><span><b>${fmt(o.price)} Z</b><small>Pokaż miejsce ↗</small></span></button>`).join('') || '<p class="detail-muted">Brak ofert tego przedmiotu w archiwum sklepów.</p>';
     $('#detail-all-offers').textContent = offers.length > 10 ? `Pokaż wszystkie oferty (${offers.length}) →` : 'Pokaż oferty w wyszukiwarce →';
   }
   $('#detail-close').addEventListener('click', close);

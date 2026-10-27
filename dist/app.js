@@ -1,6 +1,6 @@
 import { normalizeSnapshot, filterOffers, worldToMap } from './market.js';
-import { createItemDetail } from './item-detail.js?v=4';
-import { syncLabel } from './data-status.js?v=1';
+import { createItemDetail } from './item-detail.js?v=archive-1';
+import { syncLabel } from './data-status.js?v=archive-1';
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -94,19 +94,14 @@ function renderMetadata() {
   $('#stat-sell').textContent = number(stats.sellOffers);
   $('#stat-buy').textContent = number(stats.buyOffers);
   $('#scan-time').textContent = shortDate(stats.lastSeenAt) + ' (PL)';
-  $('#scan-age').textContent = ageLabel(stats.lastSeenAt);
+  $('#scan-age').textContent = `Archiwum · ${ageLabel(stats.lastSeenAt).toLowerCase()}`;
   $('#scan-time').title = fullDate(stats.lastSeenAt);
   $('#source-observed').textContent = fullDate(stats.lastSeenAt);
   $('#source-fetched').textContent = fullDate(meta.fetchedAt);
   $('#source-synced').textContent = syncStatus?.attemptedAt
-    ? `${fullDate(syncStatus.attemptedAt)} · ${syncLabel(syncStatus)}`
-    : 'Kopia początkowa — status sprawdzenia jeszcze niedostępny';
-  const hoursOld = (Date.now() - new Date(stats.lastSeenAt).getTime()) / 3600000;
-  $('#data-notice p').textContent = syncStatus?.success === false
-    ? 'Ostatnie odświeżenie źródła nie powiodło się. Pokazujemy zachowaną kopię — sprawdź czas odczytu.'
-    : hoursOld > 24
-      ? `Ten odczyt ma ponad ${Math.floor(hoursOld)} godz. ${syncStatus?.dataChanged === false ? 'Źródło nadal udostępnia te same dane. ' : ''}Sklepy i ceny mogły się zmienić; sprawdź ofertę w grze.`
-      : 'To ostatnio zaobserwowane oferty. Sklep może już być zamknięty, a cena zmieniona.';
+    ? `${fullDate(syncStatus.attemptedAt)} · ${syncLabel(syncStatus, { sourceRetired: true })}`
+    : 'Archiwum — źródło zakończyło aktualizacje 24.10.2026';
+  $('#data-notice p').textContent = `Archiwalny odczyt sklepów: ${fullDate(stats.lastSeenAt)}. Ceny i miejsca nie potwierdzają obecnej dostępności ofert.`;
 }
 function renderNavigation() {
   document.body.classList.toggle('mode-map', state.view === 'map');
@@ -137,7 +132,7 @@ function renderResults() {
   state.page = Math.min(Math.max(1, state.page), pages);
   const start = (state.page - 1) * PAGE_SIZE;
   const page = filtered.slice(start, start + PAGE_SIZE);
-  $('#results-title').textContent = state.view === 'favorites' ? 'Obserwowane przedmioty' : state.type === 'sell' ? 'Oferty sprzedaży' : state.type === 'buy' ? 'Oferty kupna' : 'Wszystkie oferty';
+  $('#results-title').textContent = state.view === 'favorites' ? 'Obserwowane · archiwum' : state.type === 'sell' ? 'Archiwum sprzedaży' : state.type === 'buy' ? 'Archiwum kupna' : 'Archiwum ofert';
   const shops = new Set(filtered.map(o => o.stallId)).size;
   $('#results-count').textContent = `${number(filtered.length)} ${plural(filtered.length, 'oferta', 'oferty', 'ofert')} · ${number(shops)} ${plural(shops, 'sklep', 'sklepy', 'sklepów')}${state.query ? ` · „${state.query}”` : ''}`;
   $('#offer-rows').innerHTML = page.map(offer => {
@@ -204,8 +199,8 @@ function renderShop(stall) {
   $('#shop-details').innerHTML = `<div class="shop-header"><div><p class="eyebrow">WYBRANY SKLEP</p><h3>${esc(stall.player)}</h3></div><button class="share-button" id="share-shop">Link ↗</button></div>
     <span class="small-pill">City of Junon Polis</span>
     <div class="shop-coords"><span class="coordinate-box"><span>X</span> ${coord(stall.x)}</span><span class="coordinate-box"><span>Y</span> ${coord(stall.y)}</span><button class="copy-button" id="copy-position">Kopiuj miejsce</button></div>
-    <p class="shop-seen">◷ Ostatnio widziany: ${esc(fullDate(stall.seenAt))}<br>${esc(ageLabel(stall.seenAt))}${inFilter ? '' : ' · Sklep poza aktualnym filtrem'}</p>
-    <p class="shop-list-title">Oferty tego sklepu w odczycie · ${number(offers.length)}</p>
+    <p class="shop-seen">◷ Archiwalne miejsce: ${esc(fullDate(stall.seenAt))}<br>${esc(ageLabel(stall.seenAt))}${inFilter ? '' : ' · Sklep poza aktualnym filtrem'}</p>
+    <p class="shop-list-title">Archiwalne oferty sklepu · ${number(offers.length)}</p>
     <ul class="shop-list">${offers.map(o => `<li><button data-item="${esc(o.itemId)}" data-item-offer="${esc(o.id)}" title="Wykres cen i opłacalność"><span>${esc(o.itemName)}<small>${o.type === 'sell' ? 'Gracz sprzedaje' : 'Gracz kupuje'} · wykres ↗</small></span><strong>${number(o.price)} Z</strong></button></li>`).join('')}</ul>`;
 }
 function render() {
@@ -262,7 +257,7 @@ async function loadData() {
     if (syncStatus && (typeof syncStatus.success !== 'boolean' || !Number.isFinite(Date.parse(syncStatus.attemptedAt)))) syncStatus = null;
     if (state.stall && !dataset.stalls.some(s => s.id === state.stall)) {
       state.stall = null;
-      showToast('Tego sklepu nie ma w bieżącym odczycie. Pokazujemy pozostałe oferty.');
+      showToast('Tego sklepu nie ma we wczytanym archiwum. Pokazujemy pozostałe oferty.');
     }
     $('#load-error').hidden = true;
     renderMetadata();
@@ -272,12 +267,12 @@ async function loadData() {
   } catch {
     $('#load-error').hidden = false;
     $('#load-error').textContent = dataset
-      ? 'Nie udało się odświeżyć danych. Nadal widzisz poprzednio wczytany odczyt. Spróbuj przyciskiem „Odśwież”.'
-      : 'Nie udało się wczytać zestawienia sklepów. Sprawdź połączenie i użyj przycisku „Odśwież”.';
+      ? 'Nie udało się ponownie wczytać archiwum. Nadal widzisz poprzednio wczytane dane. Spróbuj przyciskiem „Wczytaj ponownie”.'
+      : 'Nie udało się wczytać archiwum sklepów. Sprawdź połączenie i użyj przycisku „Wczytaj ponownie”.';
     if (!dataset) {
       $('#results-count').textContent = 'Dane chwilowo niedostępne';
       $('#scan-time').textContent = 'Brak danych';
-      $('#scan-age').textContent = 'Spróbuj odświeżyć stronę';
+      $('#scan-age').textContent = 'Archiwum · spróbuj wczytać ponownie';
       $('#prev-page').disabled = true;
       $('#next-page').disabled = true;
     }

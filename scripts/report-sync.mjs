@@ -11,6 +11,7 @@ export function checkAttempt(status, outcome, startedAt) {
   if (!Number.isFinite(Date.parse(startedAt)) || !Number.isFinite(Date.parse(status.attemptedAt))
     || Date.parse(status.attemptedAt) < Date.parse(startedAt)
     || !['success', 'failure'].includes(outcome) || status.success !== (outcome === 'success')
+    || (status.reason === 'source_retired' && status.success !== false)
     || (status.success ? typeof status.dataChanged !== 'boolean' : status.dataChanged !== null)) {
     throw new Error('Missing or inconsistent status for this refresh attempt; refusing to publish.');
   }
@@ -29,9 +30,11 @@ export async function reportSync({ dataDirectory = DATA_DIRECTORY, startedAt = p
     checkAttempt(status, outcome, startedAt);
     healthy &&= status.success;
     const observed = kind === 'market' ? normalizeSnapshot(data).stats.lastSeenAt : latestHistoryDate(data);
-    const note = !status.success ? 'Błąd pobrania. Zachowano ostatnie poprawne dane.'
+    const note = status.reason === 'source_retired'
+      ? 'Źródło zakończyło aktualizacje 24.10.2026. Zachowano archiwum; odświeżanie bieżących ofert jest zablokowane.'
+      : !status.success ? 'Błąd pobrania. Zachowano ostatnie poprawne dane.'
       : status.dataChanged ? 'Pobrano zmienione dane.' : 'Pobranie udane, ale dane źródłowe bez zmian.';
-    sections.push(`## ${name}\n\n${note}\n\nPróba: ${status.attemptedAt}\n\nData pobrania kopii: ${status.snapshotFetchedAt}\n\nNajnowsza obserwacja (UTC): ${observed}\n`);
+    sections.push(`## ${name}\n\n${note}\n\nKontrola źródła: ${status.attemptedAt}\n\nData pobrania zachowanej kopii: ${status.snapshotFetchedAt}\n\nNajnowsza obserwacja (UTC): ${observed}\n`);
     if (!status.success) console.log(`::warning::${name}: ${status.error}`);
     if (Date.now() - Date.parse(observed) > 86_400_000) console.log(`::warning::${name}: obserwacje starsze niż 24 godziny (${observed}); udane pobranie nie oznacza nowych ofert.`);
   }

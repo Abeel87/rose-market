@@ -326,14 +326,7 @@ export async function syncHistory({ dataDirectory = DATA_DIRECTORY, fetchImpl = 
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const status = await syncHistory({ onProgress: ({ completed, total }) => {
-      if (completed === 1 || completed === total || completed % 10 === 1) console.log(`Historia cen: pobrano ${completed}/${total} stron.`);
-    } });
-    if (status.success) console.log(`Historia zapisana (${status.dataChanged ? 'zmienione dane' : 'dane bez zmian'}): ${status.recordCount} rekordów cen, ${status.itemCount} przedmiotów. Ostatni dzień obserwacji: ${status.latestObservationDate}`);
-    else { console.error(status.error); process.exitCode = 1; }
-  } catch {
-    console.error('Nie udało się zapisać statusu odświeżenia historii cen.');
-    process.exitCode = 1;
-  }
+  // Retain historical validation without refreshing a discontinued feed.
+  console.error('Źródło zakończyło aktualizacje 24.10.2026. Nie pobrano historii. Użyj npm run sync:history, aby zapisać status archiwum.');
+  process.exitCode = 1;
 }

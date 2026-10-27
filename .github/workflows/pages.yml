@@ -44,15 +44,17 @@ jobs:
       - name: Record the start of this refresh
         run: node --input-type=module -e 'import { appendFileSync } from "node:fs"; appendFileSync(process.env.GITHUB_ENV, `REFRESH_STARTED_AT=${new Date().toISOString()}\n`);'
 
-      - name: Refresh the market snapshot
+      # Toolbox explicitly retired its market on 2026-10-24. Preserve the
+      # deployed archive, but never report a new successful refresh of it.
+      - name: Record the retired market source
         id: sync
         continue-on-error: true
-        run: node scripts/sync-market.mjs
+        run: node scripts/record-retired-source.mjs market
 
-      - name: Refresh the separate buy and sell price history
+      - name: Record the retired price history source
         id: history
         continue-on-error: true
-        run: node scripts/sync-history.mjs
+        run: node scripts/record-retired-source.mjs history
 
       - name: Report refresh status
         env:
@@ -77,5 +79,5 @@ jobs:
       - name: Require successful data synchronization
         if: steps.sync.outcome != 'success' || steps.history.outcome != 'success'
         run: |
-          echo '::error::The fallback was published, but a data refresh failed. See the refresh summary.'
+          echo '::error::The verified archive was published. Current market data is unavailable: the source retired on 2026-10-24. See the refresh summary and docs/roseutils-access.md.'
           exit 1
