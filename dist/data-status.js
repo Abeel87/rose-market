@@ -1,5 +1,11 @@
-/** A successful HTTP fetch says nothing about new observations at the source. */
-export function syncLabel(status) {
+/** The last published market observations belong to this archived source. */
+export const ARCHIVE_END_AT = Date.parse('2026-10-24T23:59:59.999Z');
+
+/** A successful HTTP fetch says nothing about new observations at the source.
+ * Known retirement takes precedence over cached or missing download statuses.
+ */
+export function syncLabel(status, { sourceRetired = false } = {}) {
+  if (sourceRetired || status?.reason === 'source_retired') return 'archiwum — źródło zakończyło aktualizacje 24.10.2026';
   if (status?.success === false) return 'błąd — pokazujemy zachowaną kopię';
   if (status?.success !== true) return 'status pobrania niedostępny';
   if (status.dataChanged === false) return 'pobrano poprawnie — dane źródłowe bez zmian';
