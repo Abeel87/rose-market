@@ -60,10 +60,10 @@ export async function recordRetiredSource(kind, {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     await recordRetiredSource(process.argv[2]);
-    console.error(RETIREMENT_MESSAGE);
-    // Pages is still allowed to publish the verified archive and this status.
-    // The refresh itself must never be marked successful.
-    process.exitCode = 1;
+    console.log(`Zapisano status zweryfikowanego archiwum. ${RETIREMENT_MESSAGE}`);
+    // The operation succeeded; this does not make the retired source healthy.
+    // Its persisted status remains success:false and dataChanged:null.
+    process.exitCode = 0;
   } catch {
     console.error('Nie udało się zweryfikować archiwum i zapisać statusu zakończonego źródła.');
     process.exitCode = 1;

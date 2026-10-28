@@ -8,10 +8,14 @@ import { latestHistoryDate } from './sync-history.mjs';
 const DATA_DIRECTORY = fileURLToPath(new URL('../dist/data/', import.meta.url));
 
 export function checkAttempt(status, outcome, startedAt) {
-  if (!Number.isFinite(Date.parse(startedAt)) || !Number.isFinite(Date.parse(status.attemptedAt))
+  // Recording a known retirement can succeed while the source stays unavailable.
+  // A failed recording operation must never be excused by an old retired status.
+  const matchesOutcome = status?.reason === 'source_retired'
+    ? outcome === 'success' && status.success === false
+    : status?.success === (outcome === 'success');
+  if (!Number.isFinite(Date.parse(startedAt)) || !Number.isFinite(Date.parse(status?.attemptedAt))
     || Date.parse(status.attemptedAt) < Date.parse(startedAt)
-    || !['success', 'failure'].includes(outcome) || status.success !== (outcome === 'success')
-    || (status.reason === 'source_retired' && status.success !== false)
+    || !['success', 'failure'].includes(outcome) || !matchesOutcome
     || (status.success ? typeof status.dataChanged !== 'boolean' : status.dataChanged !== null)) {
     throw new Error('Missing or inconsistent status for this refresh attempt; refusing to publish.');
   }
@@ -31,7 +35,7 @@ export async function reportSync({ dataDirectory = DATA_DIRECTORY, startedAt = p
     healthy &&= status.success;
     const observed = kind === 'market' ? normalizeSnapshot(data).stats.lastSeenAt : latestHistoryDate(data);
     const note = status.reason === 'source_retired'
-      ? 'Źródło zakończyło aktualizacje 24.10.2026. Zachowano archiwum; odświeżanie bieżących ofert jest zablokowane.'
+      ? 'Archiwum zweryfikowane i zachowane. Źródło zakończyło aktualizacje 24.10.2026; bieżące oferty pozostają niedostępne.'
       : !status.success ? 'Błąd pobrania. Zachowano ostatnie poprawne dane.'
       : status.dataChanged ? 'Pobrano zmienione dane.' : 'Pobranie udane, ale dane źródłowe bez zmian.';
     sections.push(`## ${name}\n\n${note}\n\nKontrola źródła: ${status.attemptedAt}\n\nData pobrania zachowanej kopii: ${status.snapshotFetchedAt}\n\nNajnowsza obserwacja (UTC): ${observed}\n`);

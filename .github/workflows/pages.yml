@@ -33,30 +33,28 @@ jobs:
       - name: Read project source
         uses: actions/checkout@v7
 
-      - name: Verify code before contacting data sources
+      - name: Verify code before publishing the archive
         run: |
           npm run check
           npm test
 
-      - name: Restore the last published data before refreshing
+      - name: Restore the last published archive
         run: node scripts/published-data.mjs
 
-      - name: Record the start of this refresh
+      - name: Record the start of this archive check
         run: node --input-type=module -e 'import { appendFileSync } from "node:fs"; appendFileSync(process.env.GITHUB_ENV, `REFRESH_STARTED_AT=${new Date().toISOString()}\n`);'
 
-      # Toolbox explicitly retired its market on 2026-10-24. Preserve the
-      # deployed archive, but never report a new successful refresh of it.
+      # A successful step means the archive was validated and its status saved.
+      # Source availability stays false; validation or write failures stop deploy.
       - name: Record the retired market source
         id: sync
-        continue-on-error: true
         run: node scripts/record-retired-source.mjs market
 
       - name: Record the retired price history source
         id: history
-        continue-on-error: true
         run: node scripts/record-retired-source.mjs history
 
-      - name: Report refresh status
+      - name: Validate and report archive status
         env:
           SYNC_OUTCOME: ${{ steps.sync.outcome }}
           HISTORY_OUTCOME: ${{ steps.history.outcome }}
@@ -74,10 +72,12 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      # Deploy the validated fallback and its honest error status first. Still mark
-      # the run failed if a source refresh failed; a deployment is not a data check.
-      - name: Require successful data synchronization
-        if: steps.sync.outcome != 'success' || steps.history.outcome != 'success'
+      - name: Confirm archive publication
         run: |
-          echo '::error::The verified archive was published. Current market data is unavailable: the source retired on 2026-10-24. See the refresh summary and docs/roseutils-access.md.'
-          exit 1
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## Publikacja
+
+          **Archiwum opublikowane poprawnie. Aktualne dane rynku pozostają niedostępne.**
+
+          [Otwórz ROSE Market](https://abeel87.github.io/rose-market/). Źródło zakończyło aktualizacje 24.10.2026; zachowano oryginalne ceny i daty obserwacji. Udana publikacja nie oznacza pobrania nowych ofert.
+          SUMMARY

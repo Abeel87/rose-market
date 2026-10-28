@@ -39,4 +39,6 @@ Dopiero po próbnym pobraniu kompletnych, nowszych danych można zastąpić etap
 
 ## Zachowanie obecnej publikacji
 
-Każde wdrożenie odtwarza ostatnie zweryfikowane dane z Pages. `record-retired-source.mjs` zmienia tylko statusy na `source_retired`, zachowując ceny, daty obserwacji i datę ostatniego udanego pobrania. Nie odpytuje zamrożonych źródeł. Strona publikuje archiwum z czytelną informacją, a końcowa kontrola workflow zgłasza niedostępność aktualnych danych. Ten błąd dotyczy odświeżania rynku; nie oznacza utraty ani awarii publikacji archiwum.
+Każde wdrożenie odtwarza ostatnie zweryfikowane dane z Pages. `record-retired-source.mjs` zmienia tylko statusy na `source_retired`, zachowując ceny, daty obserwacji i datę ostatniego udanego pobrania. Nie odpytuje zamrożonych źródeł. Poprawna walidacja i zapis statusu kończą krok kodem 0; błąd walidacji lub zapisu zatrzymuje publikację.
+
+Udane wdrożenie archiwum ma zielony status GitHub Actions. Niedostępność aktualnych danych jest widoczna jako ostrzeżenie i w podsumowaniu, a status źródła nadal ma `success: false` oraz `dataChanged: null`. Testy, zapis plików i samo wdrożenie nadal muszą się powieść. Zielony status publikacji nie oznacza przywrócenia bieżących cen.
