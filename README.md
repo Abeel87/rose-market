@@ -9,7 +9,7 @@ Polska przeglądarka publicznych danych o sklepach graczy **ROSE Online Global**
 
 **Rynek jest archiwum. ROSE Online Toolbox zakończył aktualizowanie cen 24.10.2026.** Dostawca potwierdza to na [stronie rynku](https://roseonlinetoolbox.com/market). Ostatnie oferty i historia są zachowane, ale nie potwierdzają dzisiejszej dostępności sklepów. Poprzednie udane pobrania zwracały tę samą kopię.
 
-Publikacja oznacza zakończone źródło jako `source_retired`, bez ponownego pobierania zamrożonej kopii i bez zmiany dat obserwacji lub ostatniego udanego pobrania. Strona pokazuje wyraźny komunikat archiwum, a kontrola aktualnych danych nie zgłasza sukcesu.
+Publikacja oznacza zakończone źródło jako `source_retired`, bez ponownego pobierania zamrożonej kopii i bez zmiany dat obserwacji lub ostatniego udanego pobrania. Strona pokazuje wyraźny komunikat archiwum. Poprawne wdrożenie archiwum ma zielony status w GitHub Actions, a niedostępność aktualnych danych pozostaje ostrzeżeniem oraz statusem `success: false` w danych.
 
 Przygotowano diagnostykę bezpośredniego API ROSE Utils pod własny sekret `ROSEUTILS_API_TOKEN`. **Diagnostyka nie jest jeszcze importerem.** Brakuje uprawnionego dostępu, weryfikacji odpowiedzi na żywo oraz adaptera pełnych ofert i lokalizacji. [Kroki uzyskania i sprawdzenia dostępu](docs/roseutils-access.md).
 
@@ -46,11 +46,13 @@ GitHub Actions publikuje katalog `dist/` przez GitHub Pages:
 
 To godziny kontroli i publikacji, a nie obietnica nowych ofert. GitHub Actions może opóźniać zadania. Przycisk „Wczytaj ponownie” pobiera opublikowane archiwum Pages; nie uruchamia skanowania gry ani workflow.
 
-Historyczna funkcja importu w `scripts/sync-market.mjs` pozostaje do testowania walidacji: jedno pobranie HTTPS, limit 25 sekund i 8 MiB, walidacja przez `normalizeSnapshot`, odrzucanie pustych i starszych kopii oraz atomowy zapis. **Workflow nie uruchamia już pobierania z zamrożonego źródła.** `npm run sync` zapisuje status zakończenia źródła i kończy się niezerowym kodem, nie zmieniając danych. Bezpośrednie uruchomienie starego skryptu CLI zgłasza zakończenie aktualizacji i wskazuje właściwe polecenie, bez pobierania ani zapisu.
+Historyczna funkcja importu w `scripts/sync-market.mjs` pozostaje do testowania walidacji: jedno pobranie HTTPS, limit 25 sekund i 8 MiB, walidacja przez `normalizeSnapshot`, odrzucanie pustych i starszych kopii oraz atomowy zapis. **Workflow nie uruchamia już pobierania z zamrożonego źródła.** `npm run sync` waliduje archiwum i zapisuje status zakończenia źródła. Kod 0 oznacza poprawny zapis tego statusu; nie oznacza pobrania nowych ofert. Błąd walidacji lub zapisu zwraca kod 1. Bezpośrednie uruchomienie starego skryptu CLI zgłasza zakończenie aktualizacji i wskazuje właściwe polecenie, bez pobierania ani zapisu.
 
 Przed publikacją `scripts/published-data.mjs` odtwarza **ostatnią poprawną kopię z opublikowanej strony**, razem ze statusami rynku i historii. Sprawdza wszystkie cztery pliki oraz zgodność dat statusu z danymi. Kopia z czystego checkoutu nie zastępuje nowszego opublikowanego stanu. Jeśli nie można odczytać lub zweryfikować publikacji, workflow zatrzymuje się przed wdrożeniem i zostawia działającą stronę. Nowszy ręczny import historii w repozytorium wymaga uzgodnienia z publikacją, aby nie zgubić żadnej historii.
 
-Po odtworzeniu archiwum `scripts/record-retired-source.mjs` sprawdza zgodność danych ze statusami i atomowo zapisuje status `source_retired` dla rynku oraz historii. Zachowuje ostatnie ceny, daty obserwacji i ostatnie udane pobranie. Workflow publikuje zweryfikowane archiwum wraz z tym statusem, a potem kończy się błędem kontroli aktualności. Powodem jest wycofane źródło, nie awaria publikacji strony. Brak nowego, spójnego statusu zatrzymuje wdrożenie.
+Po odtworzeniu archiwum `scripts/record-retired-source.mjs` sprawdza zgodność danych ze statusami i atomowo zapisuje status `source_retired` dla rynku oraz historii. Zachowuje ostatnie ceny, daty obserwacji i ostatnie udane pobranie. Workflow publikuje zweryfikowane archiwum i kończy się sukcesem, z ostrzeżeniem o niedostępności aktualnych danych. Brak nowego, spójnego statusu, błąd zapisu lub błąd publikacji nadal kończą workflow niepowodzeniem. Kroki zapisu statusów nie używają `continue-on-error`, więc rzeczywisty błąd zatrzymuje wdrożenie.
+
+`report-sync.mjs` nadal zwraca `healthy: false` dla zakończonego źródła, a opcja `--require-success` nadal wymaga statusu udanego pobrania dla obu źródeł. Workflow publikacji archiwum sprawdza poprawność zachowanych plików i zapisu statusów; nie używa tej opcji do wywoływania alarmu po udanym wdrożeniu.
 
 `success` oznacza udane pobranie i walidację; `dataChanged` rozróżnia zmienione dane (`true`), identyczne obserwacje (`false`) i nieudaną lub zablokowaną próbę (`null`). `reason: source_retired` wyjaśnia trwałe zakończenie aktualizacji. `latestObservationAt` rynku oraz `latestObservationDate` historii wskazują czas rzeczywistych obserwacji, niezależny od czasu kontroli. Automatyczne uruchomienia nie dopisują commitów do repozytorium. Harmonogram nie przywraca aktualizacji po stronie dostawcy.
 
@@ -89,7 +91,7 @@ npm run check
 
 Testy synchronizacji używają wyłącznie izolowanych katalogów tymczasowych i odpowiedzi testowych. Obejmują pełną paginację, powtórny import, rozdzielenie kupna i sprzedaży, niepełne/niepoprawne dane, HTTP 429/503, stare kopie, daty z przyszłości oraz kolejne publikacje po awarii. Testy PR nie kontaktują się ze źródłami i nie publikują strony.
 
-Kontrola statusu zakończonego źródła (zwraca błąd `source_retired`, zachowując dane):
+Walidacja archiwum i zapis statusu `source_retired` (kod 0 po poprawnym zapisie, bez pobierania nowych danych):
 
 ```sh
 npm run sync
